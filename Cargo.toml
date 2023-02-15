@@ -9,3 +9,4 @@ edition = "2021"
 serde_json = "1.0.93"
 ron = "0.8"
 serde = { version = "1", features = ["derive"] }
+ode_solvers = "0.3.7"

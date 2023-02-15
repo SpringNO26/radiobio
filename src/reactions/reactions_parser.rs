@@ -10,8 +10,8 @@ use super::{KReaction, AcidBase};
 
 #[derive(Debug, Deserialize)]
 pub struct Reactions {
-    acid_base: Vec<AcidBase>,
-    k_reactions: Vec<KReaction>,
+    pub acid_base: Vec<AcidBase>,
+    pub k_reactions: Vec<KReaction>,
 }
 
 pub fn parse_reactions_file(path: &str) -> Reactions {
