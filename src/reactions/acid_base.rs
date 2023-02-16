@@ -14,3 +14,16 @@ impl ChemicalReaction for AcidBase {
         self.acid==species || self.base == species
     }
 }
+
+impl IntoIterator for AcidBase {
+    type Item = &str;
+    type IntoIter = std::array::IntoIter<&str, 2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        std::array::IntoIter::new([&*self.acid, &*self.base])
+    }
+}
+
+impl AcidBase {
+    pub fn pKa(&self) -> f64 {self.pKa}
+}
