@@ -26,3 +26,9 @@ pub fn parse_reactions_file(path: &str) -> Reactions {
     };
     return config;
 }
+
+impl Reactions {
+    pub fn number_of_species(&self) -> i32 {
+        let mut v:Vec<String>;
+    }
+}

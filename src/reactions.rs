@@ -2,6 +2,7 @@ pub mod acid_base;
 pub mod k_reactions;
 pub mod reactions_parser;
 pub mod traits;
+pub mod species;
 
 // Some Re-exports
 pub use acid_base::AcidBase;
