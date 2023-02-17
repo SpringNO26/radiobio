@@ -43,4 +43,11 @@ fn main() {
 
     let x = reactions.k_reactions[6].clone();
     println!("Another Reaction is: {:?}", &x);
+
+
+    //Acid Base reactions test
+    let x = reactions.acid_base[0].clone();
+    for elt in x.iter() {
+        println!("Acid Base species: {elt}");
+    }
 }

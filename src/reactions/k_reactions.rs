@@ -1,8 +1,10 @@
 use serde::Deserialize;
 use itertools::{chain};
+use std::collections::HashMap;
 
 // use of internal mods.
 use super::traits::ChemicalReaction;
+use super::Species;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct KReaction {
@@ -16,27 +18,19 @@ impl ChemicalReaction for KReaction {
      self.reactants.iter().any(|elt| elt==species) ||
      self.products.iter().any(|elt| elt==species)
     }
+
+    fn compute_reaction(&self, species:&HashMap<String, Species>) -> f64 {
+        let mut res = self.k_value;
+        for sp in &self.reactants {
+            res *= species.get(sp).unwrap().cc();
+        }
+        return res;
+    }
 }
 
 impl KReaction {
     pub fn k_value(&self) -> f64 {self.k_value}
     pub fn iter(&self) -> impl Iterator<Item = &String> {
-        self.reactants.iter().chain(self.products.iter())
+        chain(self.reactants.iter(), self.products.iter())
     }
 }
-
-/*
-impl IntoIterator for KReaction {
-    type Item = &str;
-    type IntoIter = std::array::IntoIter<&str, 2>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        std::array::IntoIter::new([&*self.acid, &*self.base])
-    }
-}
-
-fn iter(&self) -> impl Iterator<Item = u8> {
-    once(self.r).chain(once(self.g)).chain(once(self.b))
-}
-
-*/

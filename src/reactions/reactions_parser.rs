@@ -10,16 +10,16 @@ use serde::Deserialize;
 use super::{KReaction, AcidBase, Species};
 
 #[derive(Debug, Deserialize)]
-pub struct Reactions {
+pub struct RonReactions {
     pub acid_base: Vec<AcidBase>,
     pub k_reactions: Vec<KReaction>,
 }
 
 // Read & Parse from .ron file
-pub fn parse_reactions_file(path: &str) -> Reactions {
+pub fn parse_reactions_file(path: &str) -> RonReactions {
     let file = File::open(&path).expect("Failed Opening
         config reactions file");
-    let config: Reactions = match from_reader(file){
+    let config: RonReactions = match from_reader(file){
         Ok(x) => x,
         Err(e) => {
             println!("Failed to parse reactions data file: {}", e);
@@ -30,7 +30,7 @@ pub fn parse_reactions_file(path: &str) -> Reactions {
 }
 
 // Create a HashMap out of the reactions from .ron file
-pub fn make_species_from_config(config: &Reactions)
+pub fn make_species_from_config(config: &RonReactions)
     -> HashMap<String, Species> {
 
     let mut out = HashMap::new();
@@ -47,13 +47,20 @@ pub fn make_species_from_config(config: &Reactions)
 }
 
 // Check basic rules of chemistry/logic from .ron file
-fn check_parsed_reactions(config: &Reactions) {
-
+fn check_parsed_reactions(config: &RonReactions) {
+    todo!();
 }
 
-impl Reactions {
-    pub fn number_of_species(&self) -> i32 {
-        let mut v:Vec<String>;
-        42
+impl RonReactions {
+    pub fn number_of_species(&self) -> usize {
+        let mut v:Vec<String> = vec![];
+        for reaction in &self.k_reactions{
+            for species in reaction.iter() {
+                if !v.contains(species){
+                    v.push(species.clone());
+                }
+            }
+        }
+        return v.len();
     }
 }
