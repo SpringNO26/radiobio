@@ -1,4 +1,7 @@
-use radiobio::reactions::parse_reactions_file;
+use radiobio::reactions::{
+    parse_reactions_file,
+    make_species_from_config,
+};
 use radiobio::reactions::traits::ChemicalReaction;
 use radiobio::reactions::{AcidBase, KReaction};
 fn main() {
@@ -18,4 +21,26 @@ fn main() {
     println!("\tcontains h_r? {}", x.involve("h_r"));
     println!("\tk-value = {}", x.k_value());
 
+    let mut hash = make_species_from_config(&reactions);
+    let species = "H2O2".to_string();
+    match hash.get(&species) {
+        Some(sp) => println!("Found: {:?}", sp),
+        None => println!("No species named: {:?}", species)
+    }
+    println!("There are {} species involved", hash.len());
+    for (key, val) in &hash {
+        println!("\t {:?}", val);
+    }
+
+    hash.entry(species).and_modify(|sp| sp.set_cc(55.0));
+    println!("After modif: {:?}", hash.get("H2O2"));
+    let sp1 = hash.get("H2O2").unwrap();
+    let sp2 = hash.get("e_aq").unwrap();
+
+    println!("Trying Math operation of species: ");
+    println!(" -> Addition: {}", sp1+sp2);
+    println!(" -> Multiplication: {}", sp1*sp2);
+
+    let x = reactions.k_reactions[6].clone();
+    println!("Another Reaction is: {:?}", &x);
 }

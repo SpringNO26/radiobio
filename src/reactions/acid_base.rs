@@ -15,6 +15,7 @@ impl ChemicalReaction for AcidBase {
     }
 }
 
+/*
 impl IntoIterator for AcidBase {
     type Item = &str;
     type IntoIter = std::array::IntoIter<&str, 2>;
@@ -23,6 +24,7 @@ impl IntoIterator for AcidBase {
         std::array::IntoIter::new([&*self.acid, &*self.base])
     }
 }
+*/
 
 impl AcidBase {
     pub fn pKa(&self) -> f64 {self.pKa}

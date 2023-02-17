@@ -7,4 +7,9 @@ pub mod species;
 // Some Re-exports
 pub use acid_base::AcidBase;
 pub use k_reactions::KReaction;
-pub use reactions_parser::parse_reactions_file;
+pub use species::Species;
+
+pub use reactions_parser::{
+    parse_reactions_file,
+    make_species_from_config,
+};
