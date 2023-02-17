@@ -40,6 +40,7 @@ fn main() {
     println!("Trying Math operation of species: ");
     println!(" -> Addition: {}", sp1+sp2);
     println!(" -> Multiplication: {}", sp1*sp2);
+    println!(" -> Substraction: {}", sp2-sp1);
 
     let x = reactions.k_reactions[6].clone();
     println!("Another Reaction is: {:?}", &x);

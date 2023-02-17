@@ -45,6 +45,13 @@ impl<'a, 'b> Mul<&'b Species> for &'a Species {
 impl<'a, 'b> Sub<&'b Species> for &'a Species {
     type Output = f64;
     fn sub(self, other:&'b Species) -> f64 {
-        self.cc - other.cc
+        let res = self.cc - other.cc;
+        // Calculated cc cannot be negative.
+        if res <= 0.0 {
+            return 0 as f64;
+        } else {
+            return res;
+        }
+
     }
 }
