@@ -7,12 +7,42 @@ use ron::de::from_reader;
 use serde::Deserialize;
 
 // Intern use
-use super::{KReaction, AcidBase, Species};
+use super::{
+    KReaction,
+    AcidBase,
+    Species,
+};
+
+type MapSpecies = HashMap<String, Species>;
+
+pub struct Env {
+    reactions: Reactions,
+    species: MapSpecies,
+}
+
+pub struct Reactions {
+    pub acid_base: Vec<AcidBase>,
+    pub k_reactions: Vec<KReaction>
+}
 
 #[derive(Debug, Deserialize)]
-pub struct RonReactions {
-    pub acid_base: Vec<AcidBase>,
-    pub k_reactions: Vec<KReaction>,
+struct RonReactions {
+    pub acid_base: Vec<RonAcidBase>,
+    pub k_reactions: Vec<RonKReaction>,
+}
+//Struct for Ron deserialization
+#[derive(Debug, Deserialize, Clone)]
+struct RonKReaction {
+    reactants: Vec<String>,
+    products: Vec<String>,
+    k_value: f64,
+}
+#[derive(Debug, Deserialize, Clone)]
+#[allow(non_snake_case)]
+struct RonAcidBase {
+    acid: String,
+    base: String,
+    pKa: f64,
 }
 
 // Read & Parse from .ron file
@@ -47,6 +77,7 @@ pub fn make_species_from_config(config: &RonReactions)
 }
 
 // Check basic rules of chemistry/logic from .ron file
+#[allow(unused_variables)]
 fn check_parsed_reactions(config: &RonReactions) {
     todo!();
 }

@@ -32,7 +32,9 @@ fn main() {
         println!("\t {:?}", val);
     }
 
-    hash.entry(species).and_modify(|sp| sp.set_cc(55.0));
+    hash.entry(species).and_modify(
+        |sp| sp.set_last_cc(55.0).unwrap()
+    );
     println!("After modif: {:?}", hash.get("H2O2"));
     let sp1 = hash.get("H2O2").unwrap();
     let sp2 = hash.get("e_aq").unwrap();

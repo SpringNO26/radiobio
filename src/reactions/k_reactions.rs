@@ -5,8 +5,14 @@ use std::collections::HashMap;
 // use of internal mods.
 use super::traits::ChemicalReaction;
 use super::Species;
+use super::errors::RadioBioError;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug)]
+pub struct Stoichiometry {
+
+}
+
+#[derive(Debug, Clone)]
 pub struct KReaction {
     reactants: Vec<String>,
     products: Vec<String>,
@@ -19,12 +25,22 @@ impl ChemicalReaction for KReaction {
      self.products.iter().any(|elt| elt==species)
     }
 
-    fn compute_reaction(&self, species:&HashMap<String, Species>) -> f64 {
+    fn compute_reaction(&self, species:&HashMap<String, Species>)
+        -> Result<f64, RadioBioError>  {
         let mut res = self.k_value;
-        for sp in &self.reactants {
-            res *= species.get(sp).unwrap().cc();
+        for elt in &self.reactants {
+            match species.get(elt) {
+                Some(sp) => {
+                    let val = sp.last_cc()?;
+                    res *= val;
+                },
+                None => {
+                    return Err(RadioBioError::UnknownSpecies(
+                        elt.to_string() ));
+                },
+            }
         }
-        return res;
+        Ok(res)
     }
 }
 
@@ -34,3 +50,5 @@ impl KReaction {
         chain(self.reactants.iter(), self.products.iter())
     }
 }
+
+

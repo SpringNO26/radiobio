@@ -1,22 +1,51 @@
 
 use std::ops::{Add, Mul, Sub};
-use std::{fmt, fmt::Display};
+use std::{fmt, fmt::Display, error::Error};
+
+// Internal module use
+use super::errors::RadioBioError;
 
 #[derive(Debug)]
 pub struct Species {
     formula: String,
-    cc: f64,
+    cc: Vec<f64>, // History vector containing computed cc values.
 }
 
 impl Species {
     pub fn new(formula:String) -> Self {
-        Self {formula, cc:0 as f64}
+        Self {formula, cc: vec![0.0]}
     }
 
-    pub fn cc(&self) -> f64 { self.cc }
-    pub fn set_cc(&mut self, cc:f64) { self.cc = cc; }
-}
+    pub fn last_cc(&self) -> Result<f64, RadioBioError> {
+        let n = self.has_history()?;
+        Ok(self.cc[n-1])
+    }
 
+    pub fn set_last_cc(&mut self, cc:f64) -> Result<(), RadioBioError> {
+        let n = self.has_history()?;
+        self.cc[n-1] = cc;
+        Ok(())
+    }
+
+    pub fn push_new_cc(&mut self, cc:f64) -> Result<(), RadioBioError> {
+        match cc >= 0.0 {
+            true => {
+                self.cc.push(cc);
+                Ok(())
+            },
+            false => Err(RadioBioError::NegativeConcentration(
+                cc, self.formula.clone())),
+        }
+    }
+
+    pub fn has_history(&self) -> Result<usize, RadioBioError> {
+        match self.cc.len() {
+            0 => Err(RadioBioError::UninitializedSpecies(
+                self.formula.clone())),
+            n => Ok(n)
+        }
+    }
+}
 
 // For use in println!()
 impl Display for Species {
@@ -27,35 +56,38 @@ impl Display for Species {
 
 
 // Implements Basic maths operations between Species.
-// --> Act on cc
+// --> Act on last element of cc vector
 impl<'a, 'b> Add<&'b Species> for &'a Species {
     type Output = f64;
-    fn add(self, other:&'b Species) -> f64 {
-        self.cc + other.cc
+    fn add(self, rhs:&'b Species) -> f64 {
+        let sp1 =  self.last_cc().unwrap_or(0.0);
+        let sp2 = rhs.last_cc().unwrap_or(0.0);
+        sp1 + sp2
     }
 }
 
 impl<'a, 'b> Mul<&'b Species> for &'a Species {
     type Output = f64;
-    fn mul(self, other:&'b Species) -> f64 {
-        self.cc * other.cc
+    fn mul(self, rhs:&'b Species) -> f64 {
+        let sp1 =  self.last_cc().unwrap_or(0.0);
+        let sp2 = rhs.last_cc().unwrap_or(0.0);
+        sp1 * sp2
     }
 }
 
 impl Mul<f64> for &Species {
     type Output = f64;
-    fn mul(self, other:f64) -> f64 {
-        self.cc * other
+    fn mul(self, rhs:f64) -> f64 {
+        let sp1 =  self.last_cc().unwrap_or(0.0);
+        sp1 * rhs
     }
 }
 
 impl<'a, 'b> Sub<&'b Species> for &'a Species {
     type Output = f64;
     fn sub(self, rhs:&'b Species) -> f64 {
-        if self.cc <= rhs.cc {
-            return 0 as f64;
-        } else {
-            return self.cc - rhs.cc;
-        }
+        let sp1 =  self.last_cc().unwrap_or(0.0);
+        let sp2 = rhs.last_cc().unwrap_or(0.0);
+        sp1 - sp2
     }
 }

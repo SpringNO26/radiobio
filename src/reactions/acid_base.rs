@@ -3,9 +3,20 @@ use std::collections::HashMap;
 
 
 use super::traits::ChemicalReaction;
-use super::Species;
+use super::{Species, errors::RadioBioError};
 
-#[derive(Debug, Deserialize, Clone)]
+// Struct storing the results of the Acid Partition compute
+#[allow(dead_code)]
+pub struct AcidPartition {
+    acid: f64,
+    base: f64,
+    acid_derive: f64,
+    base_derive: f64,
+}
+
+
+// Main AcidBase struct holding the logic of acid base partitioning.
+#[derive(Debug, Clone)]
 #[allow(non_snake_case)]
 pub struct AcidBase {
     acid: String,
@@ -18,15 +29,31 @@ impl ChemicalReaction for AcidBase {
         self.acid==species || self.base == species
     }
 
-    fn compute_reaction(&self, species:&HashMap<String,Species>) -> f64 {
+    #[allow(unused_variables)]
+    fn compute_reaction(&self, species:&HashMap<String,Species>)
+        -> Result<f64, RadioBioError> {
         todo!();
     }
 }
 
 impl AcidBase {
+
+    #[allow(non_snake_case)]
     pub fn pKa(&self) -> f64 {self.pKa}
+
     pub fn iter(&self) -> AcidBaseIter<'_> {
         AcidBaseIter { inner: self, index: 0 }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn acid_partition(&self, cc_tot:f64, cc_H_plus:f64) -> AcidPartition {
+        let ka = f64::powf(10.0, -self.pKa);
+        AcidPartition {
+            acid:     cc_tot / (1.0 + ka        / cc_H_plus),
+            base:     cc_tot / (1.0 + cc_H_plus / ka       ),
+            acid_derive: 1.0 / (1.0 + ka        / cc_H_plus),
+            base_derive: 1.0 / (1.0 + cc_H_plus / ka       ),
+        }
     }
 }
 
