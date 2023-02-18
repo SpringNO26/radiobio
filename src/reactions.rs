@@ -12,5 +12,4 @@ pub use species::Species;
 
 pub use reactions_parser::{
     parse_reactions_file,
-    make_species_from_config,
 };

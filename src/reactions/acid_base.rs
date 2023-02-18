@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use std::collections::HashMap;
 
 
@@ -36,16 +35,19 @@ impl ChemicalReaction for AcidBase {
     }
 }
 
+#[allow(non_snake_case)]
 impl AcidBase {
 
-    #[allow(non_snake_case)]
+    pub fn new(acid:String, base: String, pKa: f64) -> Self {
+        Self { acid, base, pKa }
+    }
+
     pub fn pKa(&self) -> f64 {self.pKa}
 
     pub fn iter(&self) -> AcidBaseIter<'_> {
         AcidBaseIter { inner: self, index: 0 }
     }
 
-    #[allow(non_snake_case)]
     pub fn acid_partition(&self, cc_tot:f64, cc_H_plus:f64) -> AcidPartition {
         let ka = f64::powf(10.0, -self.pKa);
         AcidPartition {

@@ -1,9 +1,13 @@
 
 use std::ops::{Add, Mul, Sub};
 use std::{fmt, fmt::Display, error::Error};
+use std::collections::HashMap;
 
 // Internal module use
 use super::errors::RadioBioError;
+
+
+pub type MapSpecies = HashMap<String, Species>;
 
 #[derive(Debug)]
 pub struct Species {
@@ -15,6 +19,8 @@ impl Species {
     pub fn new(formula:String) -> Self {
         Self {formula, cc: vec![0.0]}
     }
+
+    pub fn name(&self) -> &str { &self.formula }
 
     pub fn last_cc(&self) -> Result<f64, RadioBioError> {
         let n = self.has_history()?;
