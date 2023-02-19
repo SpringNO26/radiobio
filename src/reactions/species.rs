@@ -1,6 +1,6 @@
 
 use std::ops::{Add, Mul, Sub};
-use std::{fmt, fmt::Display, error::Error};
+use std::{fmt, fmt::Display};
 use std::collections::HashMap;
 
 // Internal module use

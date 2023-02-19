@@ -1,18 +1,21 @@
-use radiobio::reactions::{
-    parse_reactions_file,
-    make_species_from_config,
-};
-use radiobio::reactions::traits::ChemicalReaction;
-use radiobio::reactions::{AcidBase, KReaction};
+use radiobio::reactions::parse_reactions_file;
+//use radiobio::reactions::traits::ChemicalReaction;
+//use radiobio::reactions::{AcidBase, KReaction};
 fn main() {
     let reaction_file = format!(
         "{}/data/reactions.ron",
         env!("CARGO_MANIFEST_DIR")
     );
     let reactions = parse_reactions_file(&reaction_file);
+    println!("Ron file parsed to {:?}", reactions);
+    //Env is {reactions -> {acid_base   -> vec<AcidBase>,
+    //                      k_reactions -> vec<KReaction>
+    //                     },
+    //          species -> HashMap
+    //       }
 
-    //println!("Reaction Config: {:?}", &reactions);
 
+    /* Old Tests
     let x = reactions.k_reactions[5].clone();
     println!("Reaction is: {:?}", &x);
     println!("\tcontains e_aq? {}", x.involve("e_aq"));
@@ -53,4 +56,5 @@ fn main() {
     for elt in x.iter() {
         println!("Acid Base species: {elt}");
     }
+    */
 }

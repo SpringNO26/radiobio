@@ -1,8 +1,8 @@
-use itertools::{chain, Product};
+use itertools::{chain};
 
 // use of internal mods.
 use super::traits::ChemicalReaction;
-use super::species::{Species, MapSpecies};
+use super::species::MapSpecies;
 use super::errors::RadioBioError;
 
 #[derive(Debug, Clone)]
@@ -58,11 +58,11 @@ impl KReaction {
         Self {reactants, products, k_value, stoichio}
     }
 
-    pub fn new_empty() -> Self {
+    pub fn new_empty(k_val:Option<f64>) -> Self {
         Self {
             reactants: vec![],
             products: vec![],
-            k_value: 0.0,
+            k_value: k_val.unwrap_or(0.0),
             stoichio: Stoichiometry { reactants: vec![], products: vec![] }
         }
     }
@@ -73,10 +73,10 @@ impl KReaction {
     }
 
     pub fn index_of_reactant(&self, sp:&str) -> Option<usize> {
-        self.reactants.iter().position(|&r| r == sp)
+        self.reactants.iter().position(|r| r == sp)
     }
     pub fn index_of_product(&self, sp:&str) -> Option<usize> {
-        self.products.iter().position(|&r| r == sp)
+        self.products.iter().position(|r| r == sp)
     }
 
     pub fn add_reactant(&mut self, sp:&str) {

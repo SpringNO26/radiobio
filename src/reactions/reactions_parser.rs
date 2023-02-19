@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::{fs::File, iter::Product};
+use std::{fs::File};
 use std::collections::HashMap;
 use itertools::{chain};
 
@@ -13,14 +13,15 @@ use super::{
     AcidBase,
     Species,
     species::MapSpecies,
-    k_reactions::Stoichiometry,
 };
 
+#[derive(Debug)]
 pub struct Env {
     reactions: Reactions,
     species: MapSpecies,
 }
 
+#[derive(Debug)]
 pub struct Reactions {
     pub acid_base: Vec<AcidBase>,
     pub k_reactions: Vec<KReaction>
@@ -60,31 +61,30 @@ pub fn parse_reactions_file(path: &str) -> Env {
         }
     };
 
-    // Convert data to a usable Env Struct for the sim.
-    let mut hash = make_species_from_config(&config);
-
-    //Convert AcidBase
+    // Convert AcidBase
     let mut ab = vec![];
     for elt in &config.acid_base {
         ab.push(AcidBase::new( elt.acid(), elt.base(), elt.pKa() ));
     }
-    //Convert kReactions
-    let mut kr = vec![];
+    // Convert kReactions
+    let mut kr_list: Vec<KReaction> = vec![];
     for elt in &config.k_reactions {
-        let mut kr = KReaction::new_empty();
+        let mut kr = KReaction::new_empty(elt.get_k_value());
 
         for sp in elt.iter_reactants() {
             kr.add_reactant(sp);
         }
         for sp in elt.iter_products() {
-            kr.add_product(sp)
+            kr.add_product(sp);
         }
 
+        kr_list.push(kr);
     }
 
-}
-
-    return Env{
+    return Env {
+        reactions: Reactions {acid_base:ab, k_reactions: kr_list},
+        species: make_species_from_config(&config),
+    };
 
 }
 
@@ -125,6 +125,7 @@ impl RonReactions {
     }
 }
 
+#[allow(non_snake_case)]
 impl RonAcidBase {
     pub fn acid(&self) -> String {self.acid.clone()}
     pub fn base(&self) -> String {self.base.clone()}
@@ -137,5 +138,8 @@ impl RonKReaction {
     }
     pub fn iter_products(&self) -> impl Iterator<Item = &String> {
         self.products.iter()
+    }
+    pub fn get_k_value(&self) -> Option<f64> {
+        Some(self.k_value)
     }
 }
