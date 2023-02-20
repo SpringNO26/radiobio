@@ -16,4 +16,8 @@ pub enum RadioBioError {
   #[error("Species ({0}) not a reactant of reaction: {1}")]
   SpeciesIsNotReactant(String, String),
 
+  #[error("{0}")]
+  UnknownAcidBaseReaction(String),
+
+
 }
