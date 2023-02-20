@@ -1,17 +1,14 @@
 use std::collections::HashMap;
 
 
-use super::traits::ChemicalReaction;
-use super::{Species, errors::RadioBioError};
+use super::traits::{
+    ChemicalReaction,
+    RResult,
+    ReactionResult,
+    ABPartition
+};
+use super::{Species};
 
-// Struct storing the results of the Acid Partition compute
-#[allow(dead_code)]
-pub struct AcidPartition {
-    acid: f64,
-    base: f64,
-    acid_derive: f64,
-    base_derive: f64,
-}
 
 
 // Main AcidBase struct holding the logic of acid base partitioning.
@@ -21,16 +18,17 @@ pub struct AcidBase {
     acid: String,
     base: String,
     pKa: f64,
+    ka: f64,
 }
 
 impl ChemicalReaction for AcidBase {
-    fn involve(&self, species: &str) -> bool {
+    fn involves(&self, species: &str) -> bool {
         self.acid==species || self.base == species
     }
 
     #[allow(unused_variables)]
     fn compute_reaction(&self, species:&HashMap<String,Species>)
-        -> Result<f64, RadioBioError> {
+        -> RResult {
         todo!();
     }
 }
@@ -39,24 +37,33 @@ impl ChemicalReaction for AcidBase {
 impl AcidBase {
 
     pub fn new(acid:String, base: String, pKa: f64) -> Self {
-        Self { acid, base, pKa }
+        Self { acid, base, pKa, ka:f64::powf(10.0, -pKa) }
     }
 
     pub fn pKa(&self) -> f64 {self.pKa}
+    pub fn ka(&self)  -> f64 {self.ka}
 
     pub fn iter(&self) -> AcidBaseIter<'_> {
         AcidBaseIter { inner: self, index: 0 }
     }
 
-    pub fn acid_partition(&self, cc_tot:f64, cc_H_plus:f64) -> AcidPartition {
-        let ka = f64::powf(10.0, -self.pKa);
-        AcidPartition {
-            acid:     cc_tot / (1.0 + ka        / cc_H_plus),
-            base:     cc_tot / (1.0 + cc_H_plus / ka       ),
-            acid_derive: 1.0 / (1.0 + ka        / cc_H_plus),
-            base_derive: 1.0 / (1.0 + cc_H_plus / ka       ),
-        }
+
+    pub fn acid_partition(&self, cc_tot:f64, cc_H_plus:f64) -> RResult {
+        let res = ABPartition::new(
+            cc_tot / (1.0 + self.ka() / cc_H_plus),
+            1.0 / (1.0 + self.ka() / cc_H_plus),
+        );
+        Ok(ReactionResult::AcidPartition(res))
     }
+
+    pub fn base_partition(&self, cc_tot:f64, cc_H_plus:f64) -> RResult {
+        let res = ABPartition::new (
+            cc_tot / (1.0 + cc_H_plus / self.ka() ),
+            1.0 / (1.0 + cc_H_plus / self.ka() ),
+        );
+        Ok(ReactionResult::BasePartition(res))
+    }
+
 }
 
 // Struct to enable easy iteration over (the 2) reactants.

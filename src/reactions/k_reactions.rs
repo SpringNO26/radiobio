@@ -1,7 +1,12 @@
 use itertools::{chain};
+use std::fmt;
 
 // use of internal mods.
-use super::traits::ChemicalReaction;
+use super::traits::{
+    ChemicalReaction,
+    ReactionResult,
+    RResult,
+};
 use super::species::MapSpecies;
 use super::errors::RadioBioError;
 
@@ -23,14 +28,44 @@ pub struct KReaction{
     stoichio: Stoichiometry,
 }
 
+impl fmt::Display for KReaction {
+    fn fmt(&self, f:&mut fmt::Formatter) -> fmt::Result {
+        let mut out: String = String::from("");
+        for (idx, sp) in self.reactants.iter().enumerate(){
+            if idx > 0 {
+                out.push_str(" + ");
+            }
+            let stoichio = self.stoichio.reactants[idx];
+            if stoichio == 1 {
+                out.push_str(sp);
+            } else {
+                out.push_str(&format!("{stoichio} {sp}"));
+            }
+        }
+        out.push_str(" -> ");
+        for (idx, sp) in self.products.iter().enumerate(){
+            if idx > 0 {
+                out.push_str(" + ");
+            }
+            let stoichio = self.stoichio.products[idx];
+            if stoichio == 1 {
+                out.push_str(sp);
+            } else {
+                out.push_str(&format!("{stoichio} {sp}"));
+            }
+        }
+        write!(f, "{}", out)
+    }
+}
+
 impl ChemicalReaction for KReaction {
-    fn involve(&self, species: &str) -> bool {
+    fn involves(&self, species: &str) -> bool {
      self.reactants.iter().any(|elt| elt==species) ||
      self.products.iter().any(|elt| elt==species)
     }
 
     fn compute_reaction(&self, species:&MapSpecies)
-        -> Result<f64, RadioBioError>  {
+        -> RResult  {
         let mut res = self.k_value;
         for elt in &self.reactants {
             match species.get(elt) {
@@ -44,7 +79,7 @@ impl ChemicalReaction for KReaction {
                 },
             }
         }
-        Ok(res)
+        Ok(ReactionResult::ProductionRate(res))
     }
 }
 
@@ -67,7 +102,10 @@ impl KReaction {
         }
     }
 
-    pub fn k_value(&self) -> f64 {self.k_value}
+    pub fn k_value(&self) -> f64 {
+        self.k_value / self.reactants.len() as f64
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &String> {
         chain(self.reactants.iter(), self.products.iter())
     }
@@ -77,6 +115,12 @@ impl KReaction {
     }
     pub fn index_of_product(&self, sp:&str) -> Option<usize> {
         self.products.iter().position(|r| r == sp)
+    }
+    pub fn is_reactant(&self, sp:&str) -> bool {
+        self.reactants.iter().any(|elt| elt==sp)
+    }
+    pub fn is_product(&self, sp:&str) -> bool {
+        self.products.iter().any(|elt| elt==sp)
     }
 
     pub fn add_reactant(&mut self, sp:&str) {
@@ -101,6 +145,19 @@ impl KReaction {
                 self.stoichio.products.push(1);
             }
         }
+    }
+
+    pub fn compute_derivative(&self, sp:&str) -> RResult {
+        if !self.is_reactant(sp) {
+            return Err(RadioBioError::SpeciesIsNotReactant(
+                sp.to_string(),
+                String::from("")
+            ));
+        }
+        let mut res = 0.0;
+        return Ok(ReactionResult::DerivateRate(res));
+
+
     }
 }
 

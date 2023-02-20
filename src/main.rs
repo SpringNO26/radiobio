@@ -6,14 +6,18 @@ fn main() {
         "{}/data/reactions.ron",
         env!("CARGO_MANIFEST_DIR")
     );
-    let reactions = parse_reactions_file(&reaction_file);
-    println!("Ron file parsed to {:?}", reactions);
+    let sim_env = parse_reactions_file(&reaction_file);
+    println!("Ron file parsed to {:?}", sim_env);
     //Env is {reactions -> {acid_base   -> vec<AcidBase>,
     //                      k_reactions -> vec<KReaction>
     //                     },
     //          species -> HashMap
     //       }
-
+    let r = sim_env.reactions.k_reactions[1].clone();
+    println!("Example of k reaction: {r}");
+    for (idx, elt) in sim_env.reactions.k_reactions.iter().enumerate(){
+        println!("{idx}) {elt}");
+    }
 
     /* Old Tests
     let x = reactions.k_reactions[5].clone();

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
@@ -10,4 +12,8 @@ pub enum RadioBioError {
 
   #[error("Try to push negative cc value of {0} for species {1}")]
   NegativeConcentration(f64, String),
+
+  #[error("Species ({0}) not a reactant of reaction: {1}")]
+  SpeciesIsNotReactant(String, String),
+
 }

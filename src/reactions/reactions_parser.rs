@@ -17,8 +17,8 @@ use super::{
 
 #[derive(Debug)]
 pub struct Env {
-    reactions: Reactions,
-    species: MapSpecies,
+    pub reactions: Reactions,
+    pub species: MapSpecies,
 }
 
 #[derive(Debug)]
