@@ -3,28 +3,42 @@
 use std::{fs::File};
 use std::collections::HashMap;
 use itertools::{chain};
+use std::rc::Rc;
 
 use ron::{de::from_reader};
 use serde::Deserialize;
 
+use super::traits::ChemicalReaction;
 // Intern use
 use super::{
     KReaction,
     AcidBase,
     Species,
     species::MapSpecies,
+    acid_base::AcidBaseEquilibrium,
 };
 
 #[derive(Debug)]
 pub struct Env {
     pub reactions: Reactions,
     pub species: MapSpecies,
+    pub ab_equilibrium: Option<AcidBaseEquilibrium>,
 }
 
 #[derive(Debug)]
 pub struct Reactions {
-    pub acid_base: Vec<AcidBase>,
-    pub k_reactions: Vec<KReaction>
+    pub acid_base: Vec<Rc<AcidBase>>,
+    pub k_reactions: Vec<Rc<KReaction>>
+}
+impl<'a> Reactions {
+    pub fn species_involved_in_acidbase(&self, sp:&str) -> bool {
+        for reaction in &self.acid_base {
+            if reaction.involves(sp){
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,26 +78,35 @@ pub fn parse_reactions_file(path: &str) -> Env {
     // Convert AcidBase
     let mut ab = vec![];
     for elt in &config.acid_base {
-        ab.push(AcidBase::new( elt.acid(), elt.base(), elt.pKa() ));
+        ab.push(Rc::new(
+            AcidBase::new( elt.acid(), elt.base(), elt.pKa() )));
     }
+
     // Convert kReactions
-    let mut kr_list: Vec<KReaction> = vec![];
+    let mut kr_list: Vec<Rc<KReaction>> = vec![];
     for elt in &config.k_reactions {
-        let mut kr = KReaction::new_empty(elt.get_k_value());
+        let mut kr =
+            KReaction::new_empty(elt.get_k_value());
 
         for sp in elt.iter_reactants() {
             kr.add_reactant(sp);
+            for reaction in &ab {
+                if reaction.involves(sp) {
+                    kr.add_acidbase_link(Rc::clone(&reaction));
+                }
+            }
         }
         for sp in elt.iter_products() {
             kr.add_product(sp);
         }
 
-        kr_list.push(kr);
+        kr_list.push(Rc::new(kr));
     }
 
     return Env {
         reactions: Reactions {acid_base:ab, k_reactions: kr_list},
         species: make_species_from_config(&config),
+        ab_equilibrium: None,
     };
 
 }

@@ -1,5 +1,6 @@
 use itertools::{chain};
 use std::fmt;
+use std::rc::Rc;
 
 // use of internal mods.
 use super::traits::{
@@ -9,6 +10,7 @@ use super::traits::{
 };
 use super::species::MapSpecies;
 use super::errors::RadioBioError;
+use super::acid_base::{AcidBase, AcidBaseEquilibrium, Chemical};
 
 #[derive(Debug, Clone)]
 pub struct Stoichiometry {
@@ -26,6 +28,8 @@ pub struct KReaction{
     products: Vec<String>,
     k_value: f64,
     stoichio: Stoichiometry,
+    acid_base: Vec<Rc<AcidBase>>,
+
 }
 
 impl fmt::Display for KReaction {
@@ -54,6 +58,13 @@ impl fmt::Display for KReaction {
                 out.push_str(&format!("{stoichio} {sp}"));
             }
         }
+        /*
+        match self.acid_base.len() {
+            0 => (),
+            x => out.push_str(&format!(" (Linked to {x} \
+                acid/base reactions)"))
+        }
+        */
         write!(f, "{}", out)
     }
 }
@@ -65,7 +76,7 @@ impl ChemicalReaction for KReaction {
     }
 
     fn compute_reaction(&self, species:&MapSpecies)
-        -> RResult  {
+        -> RResult<ReactionResult>  {
         let mut res = self.k_value;
         for elt in &self.reactants {
             match species.get(elt) {
@@ -88,9 +99,16 @@ impl KReaction {
         reactants:Vec<String>,
         products:Vec<String>,
         k_value:f64,
-        stoichio:Stoichiometry) -> Self {
+        stoichio:Stoichiometry,
+        acid_base:  Rc<AcidBase>,
+        ) -> Self {
 
-        Self {reactants, products, k_value, stoichio}
+        Self {reactants,
+              products,
+              k_value,
+              stoichio,
+              acid_base: vec![acid_base],
+            }
     }
 
     pub fn new_empty(k_val:Option<f64>) -> Self {
@@ -98,7 +116,8 @@ impl KReaction {
             reactants: vec![],
             products: vec![],
             k_value: k_val.unwrap_or(0.0),
-            stoichio: Stoichiometry { reactants: vec![], products: vec![] }
+            stoichio: Stoichiometry { reactants: vec![], products: vec![] },
+            acid_base: vec![],
         }
     }
 
@@ -110,11 +129,21 @@ impl KReaction {
         chain(self.reactants.iter(), self.products.iter())
     }
 
-    pub fn index_of_reactant(&self, sp:&str) -> Option<usize> {
-        self.reactants.iter().position(|r| r == sp)
+    pub fn index_of_reactant(&self, sp:&str) -> RResult<usize> {
+        self.reactants.iter().position(|r| r == sp).ok_or(
+            RadioBioError::SpeciesIsNotReactant(
+                sp.to_string(),
+                format!("{}", self)
+            )
+        )
     }
-    pub fn index_of_product(&self, sp:&str) -> Option<usize> {
-        self.products.iter().position(|r| r == sp)
+    pub fn index_of_product(&self, sp:&str) -> RResult<usize> {
+        self.products.iter().position(|r| r == sp).ok_or(
+            RadioBioError::SpeciesIsNotReactant(
+                sp.to_string(),
+                format!("{}", self)
+            )
+        )
     }
     pub fn is_reactant(&self, sp:&str) -> bool {
         self.reactants.iter().any(|elt| elt==sp)
@@ -122,39 +151,119 @@ impl KReaction {
     pub fn is_product(&self, sp:&str) -> bool {
         self.products.iter().any(|elt| elt==sp)
     }
+    pub fn get_reactant_stoichio(&self, sp:&str) -> RResult<usize> {
+        let idx = self.index_of_reactant(sp)?;
+        self.stoichio.reactants.get(idx).cloned().ok_or(
+            RadioBioError::SpeciesIsNotReactant(
+                sp.to_string(),
+                format!("{}", self)
+            )
+        )
+    }
+
+    pub fn get_product_stoichio(&self, sp:&str) -> RResult<usize> {
+        let idx = self.index_of_product(sp)?;
+        self.stoichio.products.get(idx).cloned().ok_or(
+            RadioBioError::SpeciesIsNotReactant(
+                sp.to_string(),
+                format!("{}", self)
+            )
+        )
+    }
+
+    pub fn has_acidbase_dep(&self) -> bool {
+        self.acid_base.len() > 0
+    }
+    pub fn is_linked_to_acidbase(&self, reaction:&Rc<AcidBase>) -> bool {
+        for elt in &self.acid_base {
+            // Rc::ptr_eq check for pointer (i.e. address) equality!
+            if Rc::ptr_eq(elt, reaction) {
+                return true;
+            }
+        }
+        return false;
+    }
+    pub fn species_linked_to_acidbase(&self, sp:&str) -> Option<Rc<AcidBase>> {
+        for reaction in &self.acid_base {
+            if reaction.involves(sp) {
+                return Some(Rc::clone(reaction));
+            }
+        }
+        None
+    }
 
     pub fn add_reactant(&mut self, sp:&str) {
         match self.index_of_reactant(sp) {
-            Some(idx) => {
+            Ok(idx) => {
                 self.stoichio.reactants[idx] += 1;
             } ,
-            None => {
+            Err(_) => {
                 self.reactants.push(String::from(sp));
                 self.stoichio.reactants.push(1);
             }
         }
     }
 
+    pub fn add_acidbase_link(&mut self, reaction:Rc<AcidBase>) {
+        self.acid_base.push(reaction);
+    }
+
     pub fn add_product(&mut self, sp:&str) {
         match self.index_of_product(sp) {
-            Some(idx) => {
+            Ok(idx) => {
                 self.stoichio.products[idx] += 1;
             } ,
-            None => {
+            Err(_) => {
                 self.products.push(String::from(sp));
                 self.stoichio.products.push(1);
             }
         }
     }
 
-    pub fn compute_derivative(&self, sp:&str) -> RResult {
+    // Need to be careful to the derivatives of reaction with species
+    // involved in Acid/Base reactions.
+    // This info is stored in self.acid_base vec<Rc<AcidBase>>
+    pub fn compute_derivative(&self,
+                              sp:&str,
+                              list_species:&MapSpecies,
+                              equilibrium:&AcidBaseEquilibrium,
+                            ) -> RResult<ReactionResult> {
         if !self.is_reactant(sp) {
             return Err(RadioBioError::SpeciesIsNotReactant(
                 sp.to_string(),
-                String::from("")
+                format!("{}", self),
             ));
         }
-        let mut res = 0.0;
+        let mut res = self.k_value();
+
+        // No acid - base dependance, easy:
+        for species in &self.reactants {
+            let mut stoi= self.get_reactant_stoichio(species)?;
+            if species == sp {stoi -= 1;}
+
+            match list_species.get(species) {
+                Some(x) => {
+                    let val = x.last_cc()?;
+                    res *= (stoi as f64) * val;
+                },
+                None => {
+                    return Err(RadioBioError::UnknownSpecies(
+                        species.to_string()));
+                },
+            }
+        }
+
+        match self.species_linked_to_acidbase(sp){
+            Some(ab) => {
+                let partner = ab.identify_partner(sp)?;
+                let part = equilibrium.get_partition(ab)?;
+                match partner {
+                    Chemical::Acid => {res *= part.dHA},
+                    Chemical::Base => {res *= part.dA}
+                }
+            },
+            None => ()
+        }
         return Ok(ReactionResult::DerivateRate(res));
 
 

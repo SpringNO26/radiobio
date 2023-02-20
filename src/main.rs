@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use radiobio::reactions::parse_reactions_file;
 //use radiobio::reactions::traits::ChemicalReaction;
 //use radiobio::reactions::{AcidBase, KReaction};
@@ -13,10 +15,27 @@ fn main() {
     //                     },
     //          species -> HashMap
     //       }
+    /*
     let r = sim_env.reactions.k_reactions[1].clone();
-    println!("Example of k reaction: {r}");
+    println!("\n\nExample of k reaction: {r}");
+    */
     for (idx, elt) in sim_env.reactions.k_reactions.iter().enumerate(){
         println!("{idx}) {elt}");
+    }
+
+    println!("\n\nCounting strong refs for Acid Base reactions : ");
+    for reaction in sim_env.reactions.acid_base.iter() {
+        println!("{reaction}, {}", Rc::strong_count(reaction));
+    }
+
+    println!("\n\n Check Acid/Base to k reaction links: ");
+    for ab_reaction in sim_env.reactions.acid_base.iter() {
+        println!("---> Checking: {ab_reaction}");
+        for reaction in sim_env.reactions.k_reactions.iter() {
+            if reaction.is_linked_to_acidbase(ab_reaction) {
+                println!("\t linked to {reaction}");
+            }
+        }
     }
 
     /* Old Tests
