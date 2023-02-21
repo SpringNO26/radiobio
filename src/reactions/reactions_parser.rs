@@ -23,8 +23,33 @@ pub struct Env {
     pub reactions: Reactions,
     pub species: MapSpecies,
     pub ab_equilibrium: Option<AcidBaseEquilibrium>,
+    pub bio_param: BioParam,
 }
 
+impl Env {
+    pub fn list_all_reactants(&self) -> Vec<String>{
+        let mut out = vec![];
+        for reaction in self.reactions.k_reactions.iter() {
+            for sp in reaction.iter_reactants() {
+                if !out.contains(sp) {
+                    out.push(sp.to_string());
+                }
+            }
+        }
+        return out;
+    }
+    pub fn list_all_products(&self) -> Vec<String>{
+        let mut out = vec![];
+        for reaction in self.reactions.k_reactions.iter() {
+            for sp in reaction.iter_products() {
+                if !out.contains(sp) {
+                    out.push(sp.to_string());
+                }
+            }
+        }
+        return out;
+    }
+}
 #[derive(Debug)]
 pub struct Reactions {
     pub acid_base: Vec<Rc<AcidBase>>,
@@ -43,6 +68,7 @@ impl<'a> Reactions {
 
 #[derive(Debug, Deserialize)]
 struct RonReactions {
+    pub bio_param: BioParam,
     pub acid_base: Vec<RonAcidBase>,
     pub k_reactions: Vec<RonKReaction>,
 }
@@ -59,6 +85,13 @@ struct RonAcidBase {
     acid: String,
     base: String,
     pKa: f64,
+}
+#[derive(Debug, Deserialize, Clone)]
+#[allow(non_snake_case)]
+pub struct BioParam {
+    pH: f64,
+    cc_H2O: f64,
+    radiolytic: HashMap<String, f64>
 }
 
 // Read & Parse from .ron file
@@ -107,6 +140,7 @@ pub fn parse_reactions_file(path: &str) -> Env {
         reactions: Reactions {acid_base:ab, k_reactions: kr_list},
         species: make_species_from_config(&config),
         ab_equilibrium: None,
+        bio_param: config.bio_param.clone(),
     };
 
 }

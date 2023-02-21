@@ -128,6 +128,12 @@ impl KReaction {
     pub fn iter(&self) -> impl Iterator<Item = &String> {
         chain(self.reactants.iter(), self.products.iter())
     }
+    pub fn iter_reactants(&self) -> impl Iterator<Item=&String> {
+        self.reactants.iter()
+    }
+    pub fn iter_products(&self) -> impl Iterator<Item=&String> {
+        self.products.iter()
+    }
 
     pub fn index_of_reactant(&self, sp:&str) -> RResult<usize> {
         self.reactants.iter().position(|r| r == sp).ok_or(
@@ -218,55 +224,6 @@ impl KReaction {
                 self.stoichio.products.push(1);
             }
         }
-    }
-
-    // Need to be careful to the derivatives of reaction with species
-    // involved in Acid/Base reactions.
-    // This info is stored in self.acid_base vec<Rc<AcidBase>>
-    pub fn compute_derivative(&self,
-                              sp:&str,
-                              list_species:&MapSpecies,
-                              equilibrium:&AcidBaseEquilibrium,
-                            ) -> RResult<ReactionResult> {
-        if !self.is_reactant(sp) {
-            return Err(RadioBioError::SpeciesIsNotReactant(
-                sp.to_string(),
-                format!("{}", self),
-            ));
-        }
-        let mut res = self.k_value();
-
-        // No acid - base dependance, easy:
-        for species in &self.reactants {
-            let mut stoi= self.get_reactant_stoichio(species)?;
-            if species == sp {stoi -= 1;}
-
-            match list_species.get(species) {
-                Some(x) => {
-                    let val = x.last_cc()?;
-                    res *= (stoi as f64) * val;
-                },
-                None => {
-                    return Err(RadioBioError::UnknownSpecies(
-                        species.to_string()));
-                },
-            }
-        }
-
-        match self.species_linked_to_acidbase(sp){
-            Some(ab) => {
-                let partner = ab.identify_partner(sp)?;
-                let part = equilibrium.get_partition(ab)?;
-                match partner {
-                    Chemical::Acid => {res *= part.dHA},
-                    Chemical::Base => {res *= part.dA}
-                }
-            },
-            None => ()
-        }
-        return Ok(ReactionResult::DerivateRate(res));
-
-
     }
 }
 

@@ -9,7 +9,7 @@ fn main() {
         env!("CARGO_MANIFEST_DIR")
     );
     let sim_env = parse_reactions_file(&reaction_file);
-    println!("Ron file parsed to {:?}", sim_env);
+    //println!("Ron file parsed to {:?}", sim_env);
     //Env is {reactions -> {acid_base   -> vec<AcidBase>,
     //                      k_reactions -> vec<KReaction>
     //                     },
@@ -19,6 +19,10 @@ fn main() {
     let r = sim_env.reactions.k_reactions[1].clone();
     println!("\n\nExample of k reaction: {r}");
     */
+    println!("\n\nBiologic parameters from RON file: ");
+    println!("{:?}\n\n", sim_env.bio_param);
+
+
     for (idx, elt) in sim_env.reactions.k_reactions.iter().enumerate(){
         println!("{idx}) {elt}");
     }
@@ -37,6 +41,15 @@ fn main() {
             }
         }
     }
+
+    let x = sim_env.list_all_reactants();
+    println!("\n\n There are {} species involved as reactants:", x.len());
+    println!("{:?}", x);
+
+    let x = sim_env.list_all_products();
+    println!("\n\n There are {} species involved as products:", x.len());
+    println!("{:?}", x);
+
 
     /* Old Tests
     let x = reactions.k_reactions[5].clone();
