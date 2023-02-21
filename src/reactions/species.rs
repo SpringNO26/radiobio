@@ -4,7 +4,7 @@ use std::{fmt, fmt::Display};
 use std::collections::HashMap;
 
 // Internal module use
-use super::errors::RadioBioError;
+//use super::errors::RadioBioError;
 
 pub type MapSpecies = HashMap<String, Species>;
 
