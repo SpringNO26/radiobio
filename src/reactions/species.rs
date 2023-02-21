@@ -17,7 +17,6 @@ pub enum ChemicalSpecies {
 #[derive(Debug)]
 pub struct Species {
     formula: String,
-    cc: Vec<f64>, // History vector containing computed cc values.
 }
 
 impl Species {
