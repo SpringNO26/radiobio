@@ -36,7 +36,7 @@ impl Display for Species {
     }
 }
 
-
+/*
 // Implements Basic maths operations between Species.
 // --> Act on last element of cc vector
 impl<'a, 'b> Add<&'b Species> for &'a Species {
@@ -73,3 +73,4 @@ impl<'a, 'b> Sub<&'b Species> for &'a Species {
         sp1 - sp2
     }
 }
+*/
