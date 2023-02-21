@@ -27,35 +27,6 @@ impl Species {
 
     pub fn name(&self) -> &str { &self.formula }
 
-    pub fn last_cc(&self) -> Result<f64, RadioBioError> {
-        let n = self.has_history()?;
-        Ok(self.cc[n-1])
-    }
-
-    pub fn set_last_cc(&mut self, cc:f64) -> Result<(), RadioBioError> {
-        let n = self.has_history()?;
-        self.cc[n-1] = cc;
-        Ok(())
-    }
-
-    pub fn push_new_cc(&mut self, cc:f64) -> Result<(), RadioBioError> {
-        match cc >= 0.0 {
-            true => {
-                self.cc.push(cc);
-                Ok(())
-            },
-            false => Err(RadioBioError::NegativeConcentration(
-                cc, self.formula.clone())),
-        }
-    }
-
-    pub fn has_history(&self) -> Result<usize, RadioBioError> {
-        match self.cc.len() {
-            0 => Err(RadioBioError::UninitializedSpecies(
-                self.formula.clone())),
-            n => Ok(n)
-        }
-    }
 }
 
 // For use in println!()
