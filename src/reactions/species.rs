@@ -6,8 +6,13 @@ use std::collections::HashMap;
 // Internal module use
 use super::errors::RadioBioError;
 
-
 pub type MapSpecies = HashMap<String, Species>;
+
+pub enum ChemicalSpecies {
+    TrackedSpecies  (Species),
+    UntrackedSpecies(Species),
+    AcidBaseCouple  (Species), // Tracked by default
+}
 
 #[derive(Debug)]
 pub struct Species {

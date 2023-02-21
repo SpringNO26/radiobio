@@ -11,10 +11,10 @@ use super::traits::{
 };
 use super::{Species};
 
-
+#[derive(Debug, Clone)]
 pub enum Chemical {
-    Acid,
-    Base
+    Acid(String),
+    Base(String),
 }
 
 //Structures Holding info about current acid/base equilibrium
@@ -101,8 +101,8 @@ impl AcidBase {
     }
 
     pub fn identify_partner(&self, sp:&str) -> RResult<Chemical> {
-        if self.acid == sp { return Ok(Chemical::Acid);}
-        if self.base == sp { return Ok(Chemical::Base);}
+        if self.acid == sp { return Ok(Chemical::Acid(sp.to_string()));}
+        if self.base == sp { return Ok(Chemical::Base(sp.to_string()));}
         Err(RadioBioError::SpeciesIsNotReactant(
             sp.to_string(),
             format!("{}", self)))
@@ -117,12 +117,12 @@ pub struct AcidBaseIter<'a> {
 }
 
 impl<'a> Iterator for AcidBaseIter<'a> {
-    type Item = &'a str;
+    type Item = Chemical;
 
     fn next(&mut self) -> Option<Self::Item> {
         let ret = match self.index {
-            0 => &(self.inner.acid),
-            1 => &(self.inner.base),
+            0 => Chemical::Acid(self.inner.acid.to_string()),
+            1 => Chemical::Base(self.inner.base.to_string()),
             _ => return None,
         };
         self.index += 1;

@@ -50,6 +50,14 @@ fn main() {
     println!("\n\n There are {} species involved as products:", x.len());
     println!("{:?}", x);
 
+    println!("\n\nLoop tests");
+    for item in sim_env.reactions.k_reactions[0].iter_special() {
+        println!("{:?}", item);
+    }
+    for item in sim_env.reactions.acid_base[0].iter() {
+        println!("{:?}", item);
+    }
+
 
     /* Old Tests
     let x = reactions.k_reactions[5].clone();

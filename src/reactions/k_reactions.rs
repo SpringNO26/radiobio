@@ -13,6 +13,12 @@ use super::errors::RadioBioError;
 use super::acid_base::{AcidBase, AcidBaseEquilibrium, Chemical};
 
 #[derive(Debug, Clone)]
+pub enum ReactionSpecies {
+    Product(String),
+    Reactant(String),
+}
+
+#[derive(Debug, Clone)]
 pub struct Stoichiometry {
     pub reactants: Vec<usize>,
     pub products: Vec<usize>,
@@ -125,7 +131,15 @@ impl KReaction {
         self.k_value / self.reactants.len() as f64
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &String> {
+    pub fn iter_special(&self) -> impl Iterator<Item = ReactionSpecies> + '_ {
+        let it_1 = self.reactants.iter().map(
+            |x|ReactionSpecies::Reactant(x.to_string()));
+        let it_2 = self.reactants.iter().map(
+            |x|ReactionSpecies::Product(x.to_string()));
+        return chain(it_1, it_2);
+    }
+
+    pub fn iter_species(&self) -> impl Iterator<Item = &String> {
         chain(self.reactants.iter(), self.products.iter())
     }
     pub fn iter_reactants(&self) -> impl Iterator<Item=&String> {
