@@ -1,35 +1,93 @@
 
-use std::ops::{Add, Mul, Sub};
 use std::{fmt, fmt::Display};
 use std::collections::HashMap;
+
+use super::AcidBase;
+use super::traits::IsTrackedSpecies;
 
 // Internal module use
 //use super::errors::RadioBioError;
 
-pub type MapSpecies = HashMap<String, Species>;
-
-pub enum ChemicalSpecies {
-    TrackedSpecies  (Species),
-    UntrackedSpecies(Species),
-    AcidBaseCouple  (Species), // Tracked by default
-}
+pub type MapSpecies = HashMap<String, SimSpecies>;
 
 #[derive(Debug)]
-pub struct Species {
-    formula: String,
+pub enum SimSpecies {
+    RawSpecies(SimpleSpecies),
+    AcidBaseCouple(AcidBase)
 }
-
-impl Species {
-    pub fn new(formula:String) -> Self {
-        Self {formula, cc: vec![0.0]}
+/*
+impl SimSpecies {
+    pub fn
+}
+*/
+impl IsTrackedSpecies for SimSpecies {
+    fn index(&self) -> usize {
+        match self {
+            SimSpecies::AcidBaseCouple(ab) => ab.index(),
+            SimSpecies::RawSpecies(sp) => sp.index()
+        }
     }
 
-    pub fn name(&self) -> &str { &self.formula }
+    fn iter_kreaction_indexes(&self) -> std::slice::Iter<i32> {
+        match self {
+            SimSpecies::AcidBaseCouple(ab) =>
+                ab.iter_kreaction_indexes(),
+            SimSpecies::RawSpecies(sp) =>
+                sp.iter_kreaction_indexes()
+        }
+    }
 
+    fn link_kreaction(&mut self, index:i32) {
+        match self {
+            SimSpecies::AcidBaseCouple(ab) =>
+                ab.link_kreaction(index),
+            SimSpecies::RawSpecies(sp) =>
+                sp.link_kreaction(index)
+        }
+    }
 }
 
 // For use in println!()
-impl Display for Species {
+impl Display for SimSpecies {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SimSpecies::RawSpecies(sp) => sp.fmt(f),
+            SimSpecies::AcidBaseCouple(ab) => ab.fmt(f)
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub struct SimpleSpecies {
+    formula: String,
+    index: usize,
+    kreaction: Vec<i32>,
+}
+
+impl IsTrackedSpecies for SimpleSpecies {
+    fn index(&self) -> usize { self.index }
+    fn iter_kreaction_indexes(&self) -> std::slice::Iter<i32>{
+        self.kreaction.iter()
+    }
+    fn link_kreaction(&mut self, index:i32) {
+        self.kreaction.push(index);
+    }
+}
+
+impl SimpleSpecies {
+    pub fn new(formula:String, index:usize) -> Self {
+        Self {formula, index, kreaction:vec![]}
+    }
+
+    pub fn name(&self) -> &str { &self.formula }
+    pub fn set_index(&mut self, index:usize) {
+        self.index = index;
+    }
+}
+
+// For use in println!()
+impl Display for SimpleSpecies {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}]", self.formula)
     }

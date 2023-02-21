@@ -23,24 +23,10 @@ fn main() {
     println!("{:?}\n\n", sim_env.bio_param);
 
 
-    for (idx, elt) in sim_env.reactions.k_reactions.iter().enumerate(){
+    for (idx, elt) in sim_env.reactions.iter().enumerate(){
         println!("{idx}) {elt}");
     }
 
-    println!("\n\nCounting strong refs for Acid Base reactions : ");
-    for reaction in sim_env.reactions.acid_base.iter() {
-        println!("{reaction}, {}", Rc::strong_count(reaction));
-    }
-
-    println!("\n\n Check Acid/Base to k reaction links: ");
-    for ab_reaction in sim_env.reactions.acid_base.iter() {
-        println!("---> Checking: {ab_reaction}");
-        for reaction in sim_env.reactions.k_reactions.iter() {
-            if reaction.is_linked_to_acidbase(ab_reaction) {
-                println!("\t linked to {reaction}");
-            }
-        }
-    }
 
     let x = sim_env.list_all_reactants();
     println!("\n\n There are {} species involved as reactants:", x.len());
@@ -51,12 +37,15 @@ fn main() {
     println!("{:?}", x);
 
     println!("\n\nLoop tests");
-    for item in sim_env.reactions.k_reactions[0].iter_special() {
+    for item in sim_env.reactions[0].iter_species() {
         println!("{:?}", item);
     }
-    for item in sim_env.reactions.acid_base[0].iter() {
-        println!("{:?}", item);
+
+    println!("\n\nSpecies Map structure");
+    for (key, elt) in sim_env.species {
+        println!("{key} --> {:?}", elt);
     }
+
 
 
     /* Old Tests

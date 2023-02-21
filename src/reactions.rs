@@ -8,7 +8,7 @@ pub mod errors;
 // Some Re-exports
 pub use acid_base::AcidBase;
 pub use k_reactions::KReaction;
-pub use species::Species;
+pub use species::SimSpecies;
 
 pub use reactions_parser::{
     parse_reactions_file,

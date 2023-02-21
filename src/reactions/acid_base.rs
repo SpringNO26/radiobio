@@ -1,15 +1,12 @@
-use std::collections::HashMap;
-use std::fmt;
-use std::rc::Rc;
 
-use super::errors::RadioBioError;
+use std::fmt;
+
 use super::traits::{
     ChemicalReaction,
     RResult,
-    ReactionResult,
-    ABPartition
+    IsTrackedSpecies
 };
-use super::{Species};
+use super::species::MapSpecies;
 
 #[derive(Debug, Clone)]
 pub enum Chemical {
@@ -17,61 +14,54 @@ pub enum Chemical {
     Base(String),
 }
 
-//Structures Holding info about current acid/base equilibrium
-#[derive(Debug, Clone)]
-#[allow(non_snake_case, dead_code)]
-pub struct AcidBaseEquilibrium {
-    time_index: usize       ,
-    cc_H_plus : f64         ,
-    partitions: Vec<(Rc<AcidBase>, ABPartition)> ,
-}
-impl AcidBaseEquilibrium {
-    pub fn new(time_index:usize, cc_H_plus:f64) -> Self {
-        Self { time_index,
-               cc_H_plus,
-               partitions: vec![],
-            }
-    }
-
-    pub fn add_partition(&mut self, reaction: Rc<AcidBase>, partition:ABPartition) {
-        self.partitions.push((reaction, partition));
-    }
-
-    pub fn get_partition(&self, reaction: Rc<AcidBase>) -> RResult<&ABPartition> {
-        for (ab, partition) in &self.partitions {
-            if Rc::ptr_eq(ab, &reaction) {
-                return Ok(partition);
-            }
+impl Chemical {
+    pub fn str_name(&self) -> String {
+        match self {
+            Chemical::Acid(name) => name.to_owned(),
+            Chemical::Base(name) => name.to_owned()
         }
-        Err(RadioBioError::UnknownAcidBaseReaction(format!("{}", reaction)))
     }
 }
-
 
 // Main AcidBase struct holding the logic of acid base partitioning.
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
 pub struct AcidBase {
-    acid: String,
-    base: String,
+    acid: Chemical,
+    base: Chemical,
     pKa: f64,
     ka: f64,
+    index: usize,
+    kreaction: Vec<i32>,
+    partition: ABPartition
 }
 
 impl fmt::Display for AcidBase {
     fn fmt(&self, f:&mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} / {} pKa = {}", self.acid, self.base, self.pKa)
+        write!(f, "{} / {} pKa = {}",
+                  self.acid.str_name(),
+                  self.base.str_name(),
+                  self.pKa)
+    }
+}
+
+impl IsTrackedSpecies for AcidBase {
+    fn index(&self) -> usize { self.index }
+    fn iter_kreaction_indexes(&self) -> std::slice::Iter<i32> {
+        self.kreaction.iter()
+    }
+    fn link_kreaction(&mut self, index:i32) {
+        self.kreaction.push(index);
     }
 }
 
 impl ChemicalReaction for AcidBase {
     fn involves(&self, species: &str) -> bool {
-        self.acid==species || self.base == species
+        self.acid.str_name()==species || self.base.str_name() == species
     }
 
     #[allow(unused_variables)]
-    fn compute_reaction(&self, species:&HashMap<String,Species>)
-        -> RResult<ReactionResult> {
+    fn compute_reaction(&self, species:&MapSpecies) {
         todo!();
     }
 }
@@ -79,36 +69,56 @@ impl ChemicalReaction for AcidBase {
 #[allow(non_snake_case)]
 impl AcidBase {
 
-    pub fn new(acid:String, base: String, pKa: f64) -> Self {
-        Self { acid, base, pKa, ka:f64::powf(10.0, -pKa) }
+    pub fn new(acid:String, base: String, pKa: f64, index:usize) -> Self {
+        Self { acid : Chemical::Acid(acid),
+               base : Chemical::Base(base),
+               pKa  : pKa,
+               ka   : f64::powf(10.0, -pKa),
+               index: index,
+               kreaction: vec![],
+               partition: ABPartition::new_empty(),
+            }
     }
 
     pub fn pKa(&self) -> f64 {self.pKa}
     pub fn ka(&self)  -> f64 {self.ka}
 
-    pub fn iter(&self) -> AcidBaseIter<'_> {
-        AcidBaseIter { inner: self, index: 0 }
+    pub fn iter(&self) -> impl Iterator<Item=&Chemical> {
+        vec![&self.acid, &self.base].into_iter()
     }
 
-    pub fn acid_partition(&self, cc_tot:f64, cc_H_plus:f64) -> RResult<ReactionResult> {
-        let res = ABPartition::new(
+    pub fn update_partition(&mut self, cc_tot:f64, cc_H_plus:f64) {
+        self.partition = ABPartition::new(
              cc_tot / ( 1.0 + cc_H_plus / self.ka() ), // Base
             cc_tot / ( 1.0 + self.ka() / cc_H_plus ), // Acid
             1.0    / ( 1.0 + cc_H_plus / self.ka() ), // dBase / dCt
            1.0    / ( 1.0 + self.ka() / cc_H_plus ), // dAcid / dCt
         );
-        Ok(ReactionResult::AcidBasePartition(res))
-    }
-
-    pub fn identify_partner(&self, sp:&str) -> RResult<Chemical> {
-        if self.acid == sp { return Ok(Chemical::Acid(sp.to_string()));}
-        if self.base == sp { return Ok(Chemical::Base(sp.to_string()));}
-        Err(RadioBioError::SpeciesIsNotReactant(
-            sp.to_string(),
-            format!("{}", self)))
     }
 }
 
+// Struct storing the results of the Acid Partition compute
+#[derive(Debug, Clone)]
+#[allow(dead_code, non_snake_case)]
+pub struct ABPartition {
+    pub A:f64,
+    pub HA:f64,
+    pub dA:f64,
+    pub dHA:f64
+}
+
+#[allow(dead_code, non_snake_case)]
+impl ABPartition {
+    pub fn new(A:f64, HA:f64, dA:f64, dHA:f64) -> Self {
+        Self { A, HA, dA, dHA}
+    }
+
+    pub fn new_empty() -> Self {
+        Self {A:0.0, HA:0.0, dA:0.0, dHA:0.0}
+    }
+}
+
+/*
 // Struct to enable easy iteration over (the 2) reactants.
 // it is a bit overkill though...
 pub struct AcidBaseIter<'a> {
@@ -129,3 +139,4 @@ impl<'a> Iterator for AcidBaseIter<'a> {
         Some(ret)
     }
 }
+*/

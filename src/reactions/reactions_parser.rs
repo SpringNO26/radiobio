@@ -8,31 +8,29 @@ use std::rc::Rc;
 use ron::{de::from_reader};
 use serde::Deserialize;
 
-use super::traits::ChemicalReaction;
 // Intern use
 use super::{
     KReaction,
     AcidBase,
-    Species,
     species::MapSpecies,
-    acid_base::AcidBaseEquilibrium,
+    species::SimSpecies,
+    species::SimpleSpecies,
 };
 
 #[derive(Debug)]
 pub struct Env {
-    pub reactions: Reactions,
+    pub reactions: Vec<KReaction>,
     pub species: MapSpecies,
-    pub ab_equilibrium: Option<AcidBaseEquilibrium>,
     pub bio_param: BioParam,
 }
 
 impl Env {
     pub fn list_all_reactants(&self) -> Vec<String>{
         let mut out = vec![];
-        for reaction in self.reactions.k_reactions.iter() {
+        for reaction in self.reactions.iter() {
             for sp in reaction.iter_reactants() {
-                if !out.contains(sp) {
-                    out.push(sp.to_string());
+                if !out.contains(sp.as_str()) {
+                    out.push(sp.as_owned_str());
                 }
             }
         }
@@ -40,29 +38,14 @@ impl Env {
     }
     pub fn list_all_products(&self) -> Vec<String>{
         let mut out = vec![];
-        for reaction in self.reactions.k_reactions.iter() {
+        for reaction in self.reactions.iter() {
             for sp in reaction.iter_products() {
-                if !out.contains(sp) {
-                    out.push(sp.to_string());
+                if !out.contains(sp.as_str()) {
+                    out.push(sp.as_owned_str());
                 }
             }
         }
         return out;
-    }
-}
-#[derive(Debug)]
-pub struct Reactions {
-    pub acid_base: Vec<Rc<AcidBase>>,
-    pub k_reactions: Vec<Rc<KReaction>>
-}
-impl<'a> Reactions {
-    pub fn species_involved_in_acidbase(&self, sp:&str) -> bool {
-        for reaction in &self.acid_base {
-            if reaction.involves(sp){
-                return true;
-            }
-        }
-        return false;
     }
 }
 
@@ -108,38 +91,25 @@ pub fn parse_reactions_file(path: &str) -> Env {
         }
     };
 
-    // Convert AcidBase
-    let mut ab = vec![];
-    for elt in &config.acid_base {
-        ab.push(Rc::new(
-            AcidBase::new( elt.acid(), elt.base(), elt.pKa() )));
-    }
-
     // Convert kReactions
-    let mut kr_list: Vec<Rc<KReaction>> = vec![];
+    let mut kr_list: Vec<KReaction> = vec![];
     for elt in &config.k_reactions {
         let mut kr =
             KReaction::new_empty(elt.get_k_value());
 
         for sp in elt.iter_reactants() {
             kr.add_reactant(sp);
-            for reaction in &ab {
-                if reaction.involves(sp) {
-                    kr.add_acidbase_link(Rc::clone(&reaction));
-                }
-            }
         }
         for sp in elt.iter_products() {
             kr.add_product(sp);
         }
 
-        kr_list.push(Rc::new(kr));
+        kr_list.push(kr);
     }
 
     return Env {
-        reactions: Reactions {acid_base:ab, k_reactions: kr_list},
+        reactions: kr_list,
         species: make_species_from_config(&config),
-        ab_equilibrium: None,
         bio_param: config.bio_param.clone(),
     };
 
@@ -150,15 +120,32 @@ fn make_species_from_config(config: &RonReactions)
     -> MapSpecies {
 
     let mut out = HashMap::new();
+    let mut idx:usize=0;
     for reaction in &config.k_reactions {
-        for species in chain(reaction.reactants.iter(), reaction.products.iter()) {
-            if !out.contains_key(species){
+        for sp in reaction.reactants.iter() {
+            if !out.contains_key(sp){
                 out.insert(
-                    species.clone(),
-                    Species::new(species.clone()));
+                    sp.clone(),
+                    SimSpecies::RawSpecies(
+                            SimpleSpecies::new(
+                                sp.clone(), idx))
+                );
+                idx += 1;
             }
         }
     }
+    // Add also the Acid/Base couples with it
+    for elt in &config.acid_base {
+        out.insert(
+            elt.label(),
+            SimSpecies::AcidBaseCouple( AcidBase::new(
+                elt.acid(),
+                elt.base(),
+                elt.pKa(),
+                idx )));
+        idx += 1;
+    }
+
     return out
 }
 
@@ -187,6 +174,9 @@ impl RonAcidBase {
     pub fn acid(&self) -> String {self.acid.clone()}
     pub fn base(&self) -> String {self.base.clone()}
     pub fn pKa(&self) -> f64   {self.pKa  }
+    pub fn label(&self) -> String {
+        format!("{}/{}", self.acid, self.base)
+    }
 }
 
 impl RonKReaction {
