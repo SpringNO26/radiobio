@@ -21,12 +21,4 @@ pub trait IsTrackedSpecies {
     fn index(&self) -> usize;
     fn iter_kreaction_indexes(&self) -> std::slice::Iter<ReactionRateIndex>;
     fn link_kreaction(&mut self, index:ReactionRateIndex);
-    /*
-    fn created_by_kreaction(&mut self, index:usize) {
-        self.link_kreaction(index as i32);
-    }
-    fn removed_by_kreaction(&mut self, index:usize) {
-        self.link_kreaction(-(index as i32));
-    }
-    */
 }

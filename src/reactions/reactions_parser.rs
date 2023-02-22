@@ -53,20 +53,12 @@ impl Env {
                     .count()
     }
 
-    pub fn get_tracked_species(&self, index:usize)
-        -> Result<&dyn IsTrackedSpecies, RadioBioError>
-    {
-        let sp = self.species.get(index).ok_or(
-            RadioBioError::WrongSpeciesIndex(index))?;
-
-        match sp {
-            SimSpecies::ABCouple(ab) => Ok(ab),
-            SimSpecies::TrackedSpecies(ssp) => Ok(ssp),
-            _ => Err(RadioBioError::NotATrackedSpeciesIndex(index)),
-        }
-    }
     pub fn mapped_species(&self) -> HashMap<String, usize> {
         mapped_species(&self.species)
+    }
+
+    pub fn iter_tracked_species(&self) -> impl Iterator<Item=&SimSpecies> {
+        self.species.iter().filter(|x| x.is_tracked())
     }
 }
 
@@ -174,7 +166,7 @@ fn make_species_from_config(config: &RonReactions)
     let mut idx:usize=0;
     let mut untracked:Vec<SimSpecies> = vec![];
 
-    // Manually add H_plus & OH_minus as constant A/B partner (pH related)
+    // Manually add H_plus & OH_minus as constant A/B partners (pH related)
     untracked.push(SimSpecies::new_cst_species(
         String::from("H_plus"),
         f64::powf(10.0, -config.bio_param.pH)));
