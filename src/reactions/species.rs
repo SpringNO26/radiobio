@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use super::acid_base::{AcidBase, ABPartner};
 use super::traits::{IsTrackedSpecies, RawSpecies};
+use super::k_reactions::ReactionRateIndex;
 
 // Internal module use
 //use super::errors::RadioBioError;
@@ -68,7 +69,7 @@ pub struct SimpleSpecies {
     label: String,
     cc_value: f64,
     index: usize,
-    kreaction: Vec<i32>,
+    kreaction: Vec<ReactionRateIndex>,
 }
 
 impl RawSpecies for SimpleSpecies {
@@ -81,10 +82,10 @@ impl RawSpecies for SimpleSpecies {
 
 impl IsTrackedSpecies for SimpleSpecies {
     fn index(&self) -> usize { self.index }
-    fn iter_kreaction_indexes(&self) -> std::slice::Iter<i32>{
+    fn iter_kreaction_indexes(&self) -> std::slice::Iter<ReactionRateIndex>{
         self.kreaction.iter()
     }
-    fn link_kreaction(&mut self, index:i32) {
+    fn link_kreaction(&mut self, index:ReactionRateIndex) {
         self.kreaction.push(index);
     }
 }

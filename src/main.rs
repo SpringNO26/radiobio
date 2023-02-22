@@ -6,7 +6,7 @@ fn main() {
         "{}/data/reactions.ron",
         env!("CARGO_MANIFEST_DIR")
     );
-    let sim_env = parse_reactions_file(&reaction_file);
+    let sim_env = parse_reactions_file(&reaction_file).unwrap();
     //println!("Ron file parsed to {:?}", sim_env);
     //Env is {reactions -> {acid_base   -> vec<AcidBase>,
     //                      k_reactions -> vec<KReaction>

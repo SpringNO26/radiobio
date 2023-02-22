@@ -20,5 +20,9 @@ pub enum RadioBioError {
   #[error("{0}")]
   UnknownAcidBaseReaction(String),
 
+  #[error("Out of bound index for vec<SimSpecies>: {0}")]
+  WrongSpeciesIndex(usize),
 
+  #[error("Index: {0} of vec<SimSpecies> does not correspond to a Tracked Species")]
+  NotATrackedSpeciesIndex(usize),
 }

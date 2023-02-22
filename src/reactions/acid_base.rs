@@ -7,6 +7,7 @@ use super::traits::{
     IsTrackedSpecies
 };
 use super::species::MapSpecies;
+use super::k_reactions::ReactionRateIndex;
 
 #[derive(Debug, Clone)]
 pub enum Chemical {
@@ -72,15 +73,15 @@ pub struct AcidBase {
     pKa: f64,
     ka: f64,
     index: usize,
-    kreaction: Vec<i32>,
+    kreaction: Vec<ReactionRateIndex>,
     partition: ABPartition
 }
 impl IsTrackedSpecies for AcidBase {
     fn index(&self) -> usize { self.index }
-    fn iter_kreaction_indexes(&self) -> std::slice::Iter<i32> {
+    fn iter_kreaction_indexes(&self) -> std::slice::Iter<ReactionRateIndex> {
         self.kreaction.iter()
     }
-    fn link_kreaction(&mut self, index:i32) {
+    fn link_kreaction(&mut self, index:ReactionRateIndex) {
         self.kreaction.push(index);
     }
 }

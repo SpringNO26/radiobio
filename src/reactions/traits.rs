@@ -1,6 +1,6 @@
 use super::species::MapSpecies;
 use super::errors::RadioBioError;
-
+use super::k_reactions::ReactionRateIndex;
 
 pub type RResult<T> = Result<T, RadioBioError>;
 
@@ -19,12 +19,14 @@ pub trait RawSpecies {
 
 pub trait IsTrackedSpecies {
     fn index(&self) -> usize;
-    fn iter_kreaction_indexes(&self) -> std::slice::Iter<i32>;
-    fn link_kreaction(&mut self, index:i32);
+    fn iter_kreaction_indexes(&self) -> std::slice::Iter<ReactionRateIndex>;
+    fn link_kreaction(&mut self, index:ReactionRateIndex);
+    /*
     fn created_by_kreaction(&mut self, index:usize) {
         self.link_kreaction(index as i32);
     }
     fn removed_by_kreaction(&mut self, index:usize) {
         self.link_kreaction(-(index as i32));
     }
+    */
 }

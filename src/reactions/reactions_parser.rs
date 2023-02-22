@@ -1,19 +1,21 @@
 #![allow(dead_code)]
 
+use std::ops::IndexMut;
 use std::{fs::File};
 use std::collections::HashMap;
 use itertools::{chain};
 
 use ron::{de::from_reader};
 use serde::Deserialize;
-
-use super::traits::RawSpecies;
 // Intern use
+use super::k_reactions::{ReactionSpecies, ReactionRateIndex};
+use super::traits::{RawSpecies, IsTrackedSpecies};
 use super::{
     KReaction,
     species::SimSpecies,
     acid_base::{AcidBase},
 };
+use super::errors::RadioBioError;
 
 #[derive(Debug)]
 pub struct Env {
@@ -51,25 +53,20 @@ impl Env {
                     .count()
     }
 
-    pub fn mapped_species(&self) -> HashMap<String, usize> {
-        let mut out = HashMap::new();
-        for (idx, sim_sp) in self.species.iter().enumerate() {
-            match sim_sp {
-                // Nothing to do.
-                SimSpecies::ABCouple(_) => (),
-                // Add to map
-                SimSpecies::ABPartner(ab) => {
-                    out.insert(ab.as_owned_str(), ab.index());
-                },
-                SimSpecies::CstSpecies(sp) => {
-                    out.insert(sp.as_owned_str(), idx);
-                },
-                SimSpecies::TrackedSpecies(sp) => {
-                    out.insert(sp.as_owned_str(), idx);
-                },
-            }
+    pub fn get_tracked_species(&self, index:usize)
+        -> Result<&dyn IsTrackedSpecies, RadioBioError>
+    {
+        let sp = self.species.get(index).ok_or(
+            RadioBioError::WrongSpeciesIndex(index))?;
+
+        match sp {
+            SimSpecies::ABCouple(ab) => Ok(ab),
+            SimSpecies::TrackedSpecies(ssp) => Ok(ssp),
+            _ => Err(RadioBioError::NotATrackedSpeciesIndex(index)),
         }
-        return out;
+    }
+    pub fn mapped_species(&self) -> HashMap<String, usize> {
+        mapped_species(&self.species)
     }
 }
 
@@ -102,7 +99,7 @@ pub struct BioParam {
 }
 
 // Read & Parse from .ron file
-pub fn parse_reactions_file(path: &str) -> Env {
+pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
     let file = File::open(&path).expect("Failed Opening
         config reactions file");
 
@@ -131,11 +128,40 @@ pub fn parse_reactions_file(path: &str) -> Env {
         kr_list.push(kr);
     }
 
-    return Env {
+
+    let mut sim_species = make_species_from_config(&config);
+    // Link kReactions to Species
+    let map_species = mapped_species(&sim_species);
+
+    for (r_idx, reaction) in kr_list.iter().enumerate() {
+        for sp in reaction.iter_species() {
+
+            let idx = match map_species.get(sp.as_str()) {
+                Some(x) => x,
+                None => continue, // not a tracked species
+            };
+
+            let rrate_idx =  match sp {
+                ReactionSpecies::Product(_) =>
+                    ReactionRateIndex::Production(r_idx),
+                ReactionSpecies::Reactant(_) =>
+                    ReactionRateIndex::Consumption(r_idx),
+            };
+            match sim_species.index_mut(*idx) {
+                SimSpecies::TrackedSpecies(sp) =>
+                    {sp.link_kreaction(rrate_idx);},
+                SimSpecies::ABCouple(ab) =>
+                    {ab.link_kreaction(rrate_idx);},
+                _ => {();},
+            }
+        }
+    }
+
+    return Ok(Env {
         reactions: kr_list,
-        species: make_species_from_config(&config),
+        species: sim_species,
         bio_param: config.bio_param.clone(),
-    };
+    });
 
 }
 
@@ -212,6 +238,27 @@ fn make_species_from_config(config: &RonReactions)
         out.push(elt);
     }
     return out
+}
+
+pub fn mapped_species(sp:&Vec<SimSpecies>) -> HashMap<String, usize> {
+    let mut out = HashMap::new();
+    for (idx, sim_sp) in sp.iter().enumerate() {
+        match sim_sp {
+            // Nothing to do.
+            SimSpecies::ABCouple(_) => (),
+            // Add to map
+            SimSpecies::ABPartner(ab) => {
+                out.insert(ab.as_owned_str(), ab.index());
+            },
+            SimSpecies::CstSpecies(sp) => {
+                out.insert(sp.as_owned_str(), idx);
+            },
+            SimSpecies::TrackedSpecies(sp) => {
+                out.insert(sp.as_owned_str(), idx);
+            },
+        }
+    }
+    return out;
 }
 
 // Check basic rules of chemistry/logic from .ron file

@@ -9,6 +9,12 @@ use super::species::MapSpecies;
 use super::errors::RadioBioError;
 
 #[derive(Debug, Clone)]
+pub enum ReactionRateIndex {
+    Production(usize),
+    Consumption(usize)
+}
+
+#[derive(Debug, Clone)]
 pub enum ReactionSpecies {
     Product(String),
     Reactant(String),
