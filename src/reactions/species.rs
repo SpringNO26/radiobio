@@ -2,8 +2,8 @@
 use std::{fmt, fmt::Display};
 use std::collections::HashMap;
 
-use super::AcidBase;
-use super::traits::IsTrackedSpecies;
+use super::acid_base::{AcidBase, ABPartner};
+use super::traits::{IsTrackedSpecies, RawSpecies};
 
 // Internal module use
 //use super::errors::RadioBioError;
@@ -12,57 +12,71 @@ pub type MapSpecies = HashMap<String, SimSpecies>;
 
 #[derive(Debug)]
 pub enum SimSpecies {
-    RawSpecies(SimpleSpecies),
-    AcidBaseCouple(AcidBase)
+    TrackedSpecies(SimpleSpecies),
+    CstSpecies(CstSpecies), //No need to track it.
+    ABCouple(AcidBase), // Also a Tracked Species
+    ABPartner(ABPartner), // Not tracked in sim
 }
-/*
+
 impl SimSpecies {
-    pub fn
-}
-*/
-impl IsTrackedSpecies for SimSpecies {
-    fn index(&self) -> usize {
+    pub fn as_owned_str(&self) -> String {
+        match self{
+            Self::TrackedSpecies(sp) => sp.as_owned_str(),
+            Self::CstSpecies(sp) => sp.as_owned_str(),
+            Self::ABPartner(sp) => sp.as_owned_str(),
+            // Cannot be borrowed as it is created on the fly
+            Self::ABCouple(ab) => ab.as_owned_str(),
+        }
+    }
+    pub fn new_tracked_species(label:String, index:usize) -> Self {
+        Self::TrackedSpecies(SimpleSpecies::new(label, index))
+    }
+    pub fn new_cst_species(label:String, cc:f64) -> Self {
+        Self::CstSpecies(CstSpecies::new(label, cc))
+    }
+    pub fn new_acid_partner(label:String, index:usize) -> Self {
+        Self::ABPartner(ABPartner::new_acid(label, index))
+    }
+    pub fn new_base_partner(label:String, index:usize) -> Self {
+        Self::ABPartner(ABPartner::new_base(label, index))
+    }
+    pub fn is_tracked(&self) -> bool {
         match self {
-            SimSpecies::AcidBaseCouple(ab) => ab.index(),
-            SimSpecies::RawSpecies(sp) => sp.index()
+            Self::TrackedSpecies(_)  => true,
+            Self::ABCouple(_)  => true,
+            _ => false,
         }
     }
 
-    fn iter_kreaction_indexes(&self) -> std::slice::Iter<i32> {
-        match self {
-            SimSpecies::AcidBaseCouple(ab) =>
-                ab.iter_kreaction_indexes(),
-            SimSpecies::RawSpecies(sp) =>
-                sp.iter_kreaction_indexes()
-        }
-    }
-
-    fn link_kreaction(&mut self, index:i32) {
-        match self {
-            SimSpecies::AcidBaseCouple(ab) =>
-                ab.link_kreaction(index),
-            SimSpecies::RawSpecies(sp) =>
-                sp.link_kreaction(index)
-        }
-    }
 }
+
 
 // For use in println!()
 impl Display for SimSpecies {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SimSpecies::RawSpecies(sp) => sp.fmt(f),
-            SimSpecies::AcidBaseCouple(ab) => ab.fmt(f)
+            SimSpecies::TrackedSpecies(sp) => sp.fmt(f),
+            SimSpecies::CstSpecies(sp) => sp.fmt(f),
+            SimSpecies::ABCouple(ab) => ab.fmt(f),
+            SimSpecies::ABPartner(sp) => sp.fmt(f),
         }
     }
 }
 
-
 #[derive(Debug)]
 pub struct SimpleSpecies {
-    formula: String,
+    label: String,
+    cc_value: f64,
     index: usize,
     kreaction: Vec<i32>,
+}
+
+impl RawSpecies for SimpleSpecies {
+    fn as_str(&self) -> &String { &self.label }
+    fn cc_value(&self) -> f64 { self.cc_value }
+    fn set_cc_value(&mut self, cc:f64) {
+        self.cc_value = cc;
+    }
 }
 
 impl IsTrackedSpecies for SimpleSpecies {
@@ -76,11 +90,15 @@ impl IsTrackedSpecies for SimpleSpecies {
 }
 
 impl SimpleSpecies {
-    pub fn new(formula:String, index:usize) -> Self {
-        Self {formula, index, kreaction:vec![]}
+    pub fn new(label:String, index:usize) -> Self {
+        Self {label, cc_value:0.0, index, kreaction:vec![]}
     }
 
-    pub fn name(&self) -> &str { &self.formula }
+    pub fn new_cst(label:String, cc:f64) -> Self {
+        Self {label, cc_value:cc, index:usize::MAX, kreaction:vec![]}
+    }
+
+    pub fn name(&self) -> &str { &self.label }
     pub fn set_index(&mut self, index:usize) {
         self.index = index;
     }
@@ -89,7 +107,37 @@ impl SimpleSpecies {
 // For use in println!()
 impl Display for SimpleSpecies {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}]", self.formula)
+        write!(f, "[{}]", self.label)
+    }
+}
+
+
+#[derive(Debug)]
+pub struct CstSpecies {
+    label: String,
+    cc_value: f64,
+}
+
+impl RawSpecies for CstSpecies {
+    fn as_str(&self) -> &String { &self.label }
+    fn cc_value(&self) -> f64 { self.cc_value }
+    fn set_cc_value(&mut self, cc:f64) {
+        self.cc_value = cc;
+    }
+}
+
+impl CstSpecies {
+    pub fn new(label:String, cc:f64) -> Self {
+        Self {label, cc_value:cc}
+    }
+
+    pub fn name(&self) -> &str { &self.label }
+}
+
+// For use in println!()
+impl Display for CstSpecies {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}]", self.label)
     }
 }
 

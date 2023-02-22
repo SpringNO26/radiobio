@@ -3,24 +3,22 @@
 use std::{fs::File};
 use std::collections::HashMap;
 use itertools::{chain};
-use std::rc::Rc;
 
 use ron::{de::from_reader};
 use serde::Deserialize;
 
+use super::traits::RawSpecies;
 // Intern use
 use super::{
     KReaction,
-    AcidBase,
-    species::MapSpecies,
     species::SimSpecies,
-    species::SimpleSpecies,
+    acid_base::{AcidBase},
 };
 
 #[derive(Debug)]
 pub struct Env {
     pub reactions: Vec<KReaction>,
-    pub species: MapSpecies,
+    pub species: Vec<SimSpecies>,
     pub bio_param: BioParam,
 }
 
@@ -47,11 +45,38 @@ impl Env {
         }
         return out;
     }
+    pub fn number_of_tracked_species(&self) -> usize {
+        self.species.iter()
+                    .filter(|x| x.is_tracked())
+                    .count()
+    }
+
+    pub fn mapped_species(&self) -> HashMap<String, usize> {
+        let mut out = HashMap::new();
+        for (idx, sim_sp) in self.species.iter().enumerate() {
+            match sim_sp {
+                // Nothing to do.
+                SimSpecies::ABCouple(_) => (),
+                // Add to map
+                SimSpecies::ABPartner(ab) => {
+                    out.insert(ab.as_owned_str(), ab.index());
+                },
+                SimSpecies::CstSpecies(sp) => {
+                    out.insert(sp.as_owned_str(), idx);
+                },
+                SimSpecies::TrackedSpecies(sp) => {
+                    out.insert(sp.as_owned_str(), idx);
+                },
+            }
+        }
+        return out;
+    }
 }
 
 #[derive(Debug, Deserialize)]
 struct RonReactions {
     pub bio_param: BioParam,
+    pub fixed_concentrations: HashMap<String, f64>,
     pub acid_base: Vec<RonAcidBase>,
     pub k_reactions: Vec<RonKReaction>,
 }
@@ -72,9 +97,8 @@ struct RonAcidBase {
 #[derive(Debug, Deserialize, Clone)]
 #[allow(non_snake_case)]
 pub struct BioParam {
-    pH: f64,
-    cc_H2O: f64,
-    radiolytic: HashMap<String, f64>
+    pub pH: f64,
+    pub radiolytic: HashMap<String, f64>
 }
 
 // Read & Parse from .ron file
@@ -115,37 +139,78 @@ pub fn parse_reactions_file(path: &str) -> Env {
 
 }
 
-// Create a HashMap out of the reactions from .ron file
-fn make_species_from_config(config: &RonReactions)
-    -> MapSpecies {
 
-    let mut out = HashMap::new();
+// Create a Vec out of the reactions from .ron file
+fn make_species_from_config(config: &RonReactions)
+    -> Vec<SimSpecies> {
+
+    let mut out:Vec<SimSpecies>= vec![];
     let mut idx:usize=0;
-    for reaction in &config.k_reactions {
-        for sp in reaction.reactants.iter() {
-            if !out.contains_key(sp){
-                out.insert(
-                    sp.clone(),
-                    SimSpecies::RawSpecies(
-                            SimpleSpecies::new(
-                                sp.clone(), idx))
-                );
-                idx += 1;
-            }
-        }
-    }
+    let mut untracked:Vec<SimSpecies> = vec![];
+
+    // Manually add H_plus & OH_minus as constant A/B partner (pH related)
+    untracked.push(SimSpecies::new_cst_species(
+        String::from("H_plus"),
+        f64::powf(10.0, -config.bio_param.pH)));
+
+    untracked.push(SimSpecies::new_cst_species(
+        String::from("OH_minus"),
+        f64::powf(10.0, -14.0+config.bio_param.pH)));
+
     // Add also the Acid/Base couples with it
     for elt in &config.acid_base {
-        out.insert(
-            elt.label(),
-            SimSpecies::AcidBaseCouple( AcidBase::new(
-                elt.acid(),
-                elt.base(),
-                elt.pKa(),
-                idx )));
+        out.push(
+            SimSpecies::ABCouple(
+                AcidBase::new(
+                    elt.acid(),
+                    elt.base(),
+                    elt.pKa(),
+                    idx,
+                )));
+        // Create both Acid and Base "RawSpecies" which will later be
+        // appended to the final vector with all species
+        untracked.push(SimSpecies::new_acid_partner(
+            elt.acid(),
+            idx));
+        untracked.push(SimSpecies::new_base_partner(
+            elt.base(),
+            idx));
         idx += 1;
     }
 
+    // Loop over all k reactions to add all their reactants (not products)
+    for reaction in &config.k_reactions {
+        for sp in reaction.reactants.iter() {
+            // First check if involved in a A/B reaction => skipped
+            if untracked.iter()
+                          .any(|elt| elt.as_owned_str()==*sp){
+                continue;
+            }
+            // Second check if Species is declared as constant
+            if config.fixed_concentrations.contains_key(sp) {
+                untracked.push(
+                    SimSpecies::new_cst_species(
+                        sp.to_string(),
+                        config.fixed_concentrations[sp]));
+                continue;
+            }
+            // Third check if already added in final vector
+            if out.iter()
+                  .any(|elt| elt.as_owned_str()==*sp) {
+                continue;
+            }
+            // Then create the new species and append it to the final vector
+            out.push(SimSpecies::new_tracked_species(
+                            sp.clone(),
+                            idx));
+            idx += 1;
+        }
+    }
+
+    // Finally append the Untracked Species by consuming untracked
+    for elt in untracked {
+        out.push(elt);
+    }
     return out
 }
 
@@ -153,6 +218,7 @@ fn make_species_from_config(config: &RonReactions)
 #[allow(unused_variables)]
 fn check_parsed_reactions(config: &RonReactions) {
     todo!();
+    // A Constant species cannot be involved in an Acid Base reaction /!\
 }
 
 impl RonReactions {

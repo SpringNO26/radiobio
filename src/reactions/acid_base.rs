@@ -1,9 +1,9 @@
 
-use std::fmt;
+use std::fmt::{self, Display};
 
 use super::traits::{
     ChemicalReaction,
-    RResult,
+    RawSpecies,
     IsTrackedSpecies
 };
 use super::species::MapSpecies;
@@ -15,14 +15,54 @@ pub enum Chemical {
 }
 
 impl Chemical {
-    pub fn str_name(&self) -> String {
+    pub fn as_owned_str(&self) -> String {
         match self {
             Chemical::Acid(name) => name.to_owned(),
             Chemical::Base(name) => name.to_owned()
         }
     }
+    pub fn as_str(&self) -> &String {
+        match self {
+            Chemical::Acid(name) => name,
+            Chemical::Base(name) => name
+        }
+    }
 }
 
+#[derive(Debug)]
+pub struct ABPartner {
+    label: Chemical,
+    cc_value: f64,
+    // Index of the related Acid/Base Reaction. Better than a Rc cell to
+    // insure mutability of the linked AcidBase structure.
+    reaction_index: usize,
+}
+impl ABPartner {
+    fn new(label:Chemical, index:usize) -> Self {
+        Self { label: label, cc_value: 0.0, reaction_index: index }
+    }
+    pub fn new_acid(label:String, index:usize) -> Self {
+        ABPartner::new(Chemical::Acid(label), index)
+    }
+    pub fn new_base(label:String, index:usize) -> Self {
+        ABPartner::new(Chemical::Base(label), index)
+    }
+    pub fn as_str(&self) -> &String { self.label.as_str() }
+    pub fn index(&self) -> usize { self.reaction_index }
+}
+impl RawSpecies for ABPartner {
+    fn as_str(&self) -> &String { self.label.as_str() }
+    fn cc_value(&self) -> f64 { self.cc_value }
+    fn set_cc_value(&mut self, cc:f64) {
+        self.cc_value = cc;
+    }
+}
+// For use in println!()
+impl Display for ABPartner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}]", self.label.as_str())
+    }
+}
 // Main AcidBase struct holding the logic of acid base partitioning.
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
@@ -35,16 +75,6 @@ pub struct AcidBase {
     kreaction: Vec<i32>,
     partition: ABPartition
 }
-
-impl fmt::Display for AcidBase {
-    fn fmt(&self, f:&mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} / {} pKa = {}",
-                  self.acid.str_name(),
-                  self.base.str_name(),
-                  self.pKa)
-    }
-}
-
 impl IsTrackedSpecies for AcidBase {
     fn index(&self) -> usize { self.index }
     fn iter_kreaction_indexes(&self) -> std::slice::Iter<i32> {
@@ -54,10 +84,10 @@ impl IsTrackedSpecies for AcidBase {
         self.kreaction.push(index);
     }
 }
-
 impl ChemicalReaction for AcidBase {
     fn involves(&self, species: &str) -> bool {
-        self.acid.str_name()==species || self.base.str_name() == species
+        self.acid.as_owned_str()==species ||
+        self.base.as_owned_str() == species
     }
 
     #[allow(unused_variables)]
@@ -65,10 +95,8 @@ impl ChemicalReaction for AcidBase {
         todo!();
     }
 }
-
 #[allow(non_snake_case)]
 impl AcidBase {
-
     pub fn new(acid:String, base: String, pKa: f64, index:usize) -> Self {
         Self { acid : Chemical::Acid(acid),
                base : Chemical::Base(base),
@@ -79,14 +107,11 @@ impl AcidBase {
                partition: ABPartition::new_empty(),
             }
     }
-
     pub fn pKa(&self) -> f64 {self.pKa}
     pub fn ka(&self)  -> f64 {self.ka}
-
     pub fn iter(&self) -> impl Iterator<Item=&Chemical> {
         vec![&self.acid, &self.base].into_iter()
     }
-
     pub fn update_partition(&mut self, cc_tot:f64, cc_H_plus:f64) {
         self.partition = ABPartition::new(
              cc_tot / ( 1.0 + cc_H_plus / self.ka() ), // Base
@@ -95,8 +120,18 @@ impl AcidBase {
            1.0    / ( 1.0 + self.ka() / cc_H_plus ), // dAcid / dCt
         );
     }
+    pub fn as_owned_str(&self) -> String {
+        format!("{}/{}", self.acid.as_str(), self.base.as_str())
+    }
 }
-
+impl fmt::Display for AcidBase {
+    fn fmt(&self, f:&mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} / {} pKa = {}",
+                  self.acid.as_owned_str(),
+                  self.base.as_owned_str(),
+                  self.pKa)
+    }
+}
 // Struct storing the results of the Acid Partition compute
 #[derive(Debug, Clone)]
 #[allow(dead_code, non_snake_case)]

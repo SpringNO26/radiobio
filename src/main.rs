@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use radiobio::reactions::parse_reactions_file;
 //use radiobio::reactions::traits::ChemicalReaction;
 //use radiobio::reactions::{AcidBase, KReaction};
@@ -41,12 +39,16 @@ fn main() {
         println!("{:?}", item);
     }
 
-    println!("\n\nSpecies Map structure");
-    for (key, elt) in sim_env.species {
-        println!("{key} --> {:?}", elt);
+    println!("\n\nSpecies Vec structure");
+    for elt in &sim_env.species {
+        println!("{:?}", elt);
     }
 
+    let x = sim_env.number_of_tracked_species();
+    println!("\n\n==> Number of tracked species: {}", x);
 
+    let map_sp = sim_env.mapped_species();
+    println!("\n\nHere is the map of Species:\n{:?}", map_sp);
 
     /* Old Tests
     let x = reactions.k_reactions[5].clone();
