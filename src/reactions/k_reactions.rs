@@ -36,6 +36,7 @@ impl ReactionSpecies {
 }
 
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct KReaction{
     species: Vec<ReactionSpecies>,
@@ -49,6 +50,7 @@ impl ChemicalReaction for KReaction {
      self.species.iter().any(|elt| elt.as_str()==species)
     }
 
+    #[allow(unused_variables)]
     fn compute_reaction(&self, species:&MapSpecies) {
         todo!();
         /*/
@@ -119,14 +121,14 @@ impl KReaction {
     {
         self.species.iter()
                     .enumerate()
-                    .filter(|(idx, sp)| sp.is_reactant())
+                    .filter(|(_, sp)| sp.is_reactant())
     }
     pub fn iter_products_indexed(&self)
         -> impl Iterator<Item=(usize, &ReactionSpecies)>
     {
         self.species.iter()
                     .enumerate()
-                    .filter(|(idx, sp)| !sp.is_reactant())
+                    .filter(|(_, sp)| !sp.is_reactant())
     }
 
     pub fn index_of_reactant(&self, sp:&str) -> RResult<usize> {
