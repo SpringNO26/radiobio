@@ -1,13 +1,15 @@
-use super::species::MapSpecies;
-use super::errors::RadioBioError;
+/* ---------------------------- External imports ---------------------------- */
+use anyhow::Result;
+use std::collections::HashMap;
+
+/* ---------------------------- Internal imports ---------------------------- */
 use super::k_reactions::ReactionRateIndex;
 
-pub type RResult<T> = Result<T, RadioBioError>;
 
-
-pub trait ChemicalReaction {
-    fn involves(&self, species: &str) -> bool;
-    fn compute_reaction(&self, species:&MapSpecies);
+pub trait IsChemicalReaction {
+    fn compute_reaction(&mut self, current_dose_rate:f64, sp:&HashMap<String, f64>)
+    -> Result<()>;
+    fn value(&self) -> f64;
 }
 
 pub trait RawSpecies {

@@ -1,13 +1,15 @@
-
+/* ---------------------------- External imports ---------------------------- */
 use std::fmt::{self, Display};
-
+/* ---------------------------- Internal imports ---------------------------- */
 use super::traits::{
-    ChemicalReaction,
     RawSpecies,
     IsTrackedSpecies
 };
-use super::species::MapSpecies;
 use super::k_reactions::ReactionRateIndex;
+
+/* -------------------------------------------------------------------------- */
+/*                         FUNCTION/STRUCT DEFINITIONS                        */
+/* -------------------------------------------------------------------------- */
 
 #[derive(Debug, Clone)]
 pub enum Chemical {
@@ -85,17 +87,7 @@ impl IsTrackedSpecies for AcidBase {
         self.kreaction.push(index);
     }
 }
-impl ChemicalReaction for AcidBase {
-    fn involves(&self, species: &str) -> bool {
-        self.acid.as_owned_str()==species ||
-        self.base.as_owned_str() == species
-    }
 
-    #[allow(unused_variables)]
-    fn compute_reaction(&self, species:&MapSpecies) {
-        todo!();
-    }
-}
 #[allow(non_snake_case)]
 impl AcidBase {
     pub fn new(acid:String, base: String, pKa: f64, index:usize) -> Self {

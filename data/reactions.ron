@@ -1,7 +1,7 @@
 (
     bio_param: (
         pH: 7,
-        radiolytic: {
+        radiolytic: { // [radical / 100eV / incident particle]
             "e_aq": 2.8,
             "HO_r": 2.8,
             "Hr"  : 0.62,

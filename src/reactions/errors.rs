@@ -1,6 +1,7 @@
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone)]
+
+#[derive(Error, Debug)]
 pub enum RadioBioError {
   #[error("Issue wih ({0}).cc: vec<f64> of a species")]
   UninitializedSpecies(String),

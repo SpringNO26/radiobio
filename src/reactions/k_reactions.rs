@@ -1,13 +1,15 @@
+/* ---------------------------- External imports ---------------------------- */
 use std::fmt;
+use anyhow::{Result, bail};
+use std::collections::HashMap;
 
-// use of internal mods.
-use super::traits::{
-    ChemicalReaction,
-    RResult,
-};
-use super::species::MapSpecies;
+/* ---------------------------- Internal imports ---------------------------- */
+use super::traits::{IsChemicalReaction};
 use super::errors::RadioBioError;
 
+/* -------------------------------------------------------------------------- */
+/*                         FUNCTION/STRUCT DEFINITIONS                        */
+/* -------------------------------------------------------------------------- */
 #[derive(Debug, Clone)]
 pub enum ReactionRateIndex {
     Production(usize),
@@ -51,31 +53,24 @@ pub struct KReaction{
     value: f64,
 }
 
-impl ChemicalReaction for KReaction {
-    fn involves(&self, species: &str) -> bool {
-     self.species.iter().any(|elt| elt.as_str()==species)
-    }
-
-    #[allow(unused_variables)]
-    fn compute_reaction(&self, species:&MapSpecies) {
-        todo!();
-        /*/
+impl IsChemicalReaction for KReaction {
+    fn compute_reaction(&mut self, current_dose_rate:f64, sp:&HashMap<String, f64>)
+    -> Result<()>{
         let mut res = self.k_value;
-        for elt in &self.reactants {
-            match species.get(elt) {
-                Some(sp) => {
-                    let val = sp.last_cc()?;
-                    res *= val;
+        for elt in self.iter_reactants().map(|x|x.as_str()) {
+            match sp.get(elt) {
+                Some(cc) => {
+                    res *= cc;
                 },
                 None => {
-                    return Err(RadioBioError::UnknownSpecies(
-                        elt.to_string() ));
+                    bail!(RadioBioError::UnknownSpecies(elt.to_string()));
                 },
             }
         }
-        Ok(ReactionResult::ProductionRate(res))
-    */
+        self.value = res;
+        Ok(())
     }
+    fn value(&self) -> f64 { self.value }
 }
 
 impl KReaction {
@@ -137,22 +132,20 @@ impl KReaction {
                     .filter(|(_, sp)| !sp.is_reactant())
     }
 
-    pub fn index_of_reactant(&self, sp:&str) -> RResult<usize> {
+    pub fn index_of_reactant(&self, sp:&str) -> Result<usize> {
         self.iter_reactants()
             .position(|r| r.as_str() == sp).ok_or(
             RadioBioError::SpeciesIsNotReactant(
                 sp.to_string(),
-                format!("{}", self)
-            )
+                format!("{}", self)).into()
         )
     }
-    pub fn index_of_product(&self, sp:&str) -> RResult<usize> {
+    pub fn index_of_product(&self, sp:&str) -> Result<usize> {
         self.iter_products()
             .position(|r| r.as_str() == sp).ok_or(
             RadioBioError::SpeciesIsNotReactant(
                 sp.to_string(),
-                format!("{}", self)
-            )
+                format!("{}", self)).into()
         )
     }
     pub fn is_reactant(&self, sp:&str) -> bool {
@@ -161,23 +154,21 @@ impl KReaction {
     pub fn is_product(&self, sp:&str) -> bool {
         self.iter_products().any(|elt| elt.as_str()==sp)
     }
-    pub fn get_stoichio(&self, sp:&str) -> RResult<usize> {
+    pub fn get_stoichio(&self, sp:&str) -> Result<usize> {
         let idx = self.index_of_reactant(sp)?;
         self.stoichio.get(idx).cloned().ok_or(
             RadioBioError::SpeciesIsNotReactant(
                 sp.to_string(),
-                format!("{}", self)
-            )
+                format!("{}", self)).into()
         )
     }
 
-    pub fn get_product_stoichio(&self, sp:&str) -> RResult<usize> {
+    pub fn get_product_stoichio(&self, sp:&str) -> Result<usize> {
         let idx = self.index_of_product(sp)?;
         self.stoichio.get(idx).cloned().ok_or(
             RadioBioError::SpeciesIsNotProduct(
                 sp.to_string(),
-                format!("{}", self)
-            )
+                format!("{}", self)).into()
         )
     }
 

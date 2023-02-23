@@ -1,13 +1,13 @@
 #![allow(dead_code)]
-
+/* ---------------------------- External imports ---------------------------- */
 use std::ops::IndexMut;
 use std::{fs::File};
 use std::collections::HashMap;
 use itertools::{chain};
-
 use ron::{de::from_reader};
 use serde::Deserialize;
-// Intern use
+
+/* ---------------------------- Internal imports ---------------------------- */
 use super::k_reactions::{ReactionSpecies, ReactionRateIndex};
 use super::traits::{RawSpecies, IsTrackedSpecies};
 use super::{
@@ -16,10 +16,14 @@ use super::{
     acid_base::{AcidBase},
 };
 use super::errors::RadioBioError;
+use super::{RadiolyticReaction, radiolytic};
 
+/* -------------------------------------------------------------------------- */
+/*                         FUNCTION/STRUCT DEFINITIONS                        */
+/* -------------------------------------------------------------------------- */
 #[derive(Debug)]
 pub struct Env {
-    pub reactions: Vec<KReaction>,
+    pub reactions: Reactions,
     pub species: Vec<SimSpecies>,
     pub bio_param: BioParam,
 }
@@ -27,7 +31,7 @@ pub struct Env {
 impl Env {
     pub fn list_all_reactants(&self) -> Vec<String>{
         let mut out = vec![];
-        for reaction in self.reactions.iter() {
+        for reaction in self.reactions.iter_kreactions() {
             for sp in reaction.iter_reactants() {
                 if !out.contains(sp.as_str()) {
                     out.push(sp.as_owned_str());
@@ -38,7 +42,7 @@ impl Env {
     }
     pub fn list_all_products(&self) -> Vec<String>{
         let mut out = vec![];
-        for reaction in self.reactions.iter() {
+        for reaction in self.reactions.iter_kreactions() {
             for sp in reaction.iter_products() {
                 if !out.contains(sp.as_str()) {
                     out.push(sp.as_owned_str());
@@ -59,6 +63,20 @@ impl Env {
 
     pub fn iter_tracked_species(&self) -> impl Iterator<Item=&SimSpecies> {
         self.species.iter().filter(|x| x.is_tracked())
+    }
+}
+#[derive(Debug)]
+pub struct Reactions {
+    kreactions: Vec<KReaction>,
+    radiolytic: Vec<RadiolyticReaction>,
+}
+
+impl Reactions {
+    pub fn iter_kreactions(&self) -> impl Iterator<Item=&KReaction> {
+        self.kreactions.iter()
+    }
+    pub fn iter_radiolytic(&self) -> impl Iterator<Item=&RadiolyticReaction> {
+        self.radiolytic.iter()
     }
 }
 
@@ -104,7 +122,7 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
         }
     };
 
-    // Convert kReactions
+    // Parse kReactions
     let mut kr_list: Vec<KReaction> = vec![];
     for elt in &config.k_reactions {
         let mut kr =
@@ -122,6 +140,7 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
 
 
     let mut sim_species = make_species_from_config(&config);
+
     // Link kReactions to Species
     let map_species = mapped_species(&sim_species);
 
@@ -149,8 +168,14 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
         }
     }
 
+    // Parse radiolytic yields
+    let mut g_list:Vec<RadiolyticReaction> = vec![];
+    for (sp, ge) in config.bio_param.radiolytic.iter() {
+        g_list.push(RadiolyticReaction::new_from_ge(sp.clone(), *ge));
+    }
+
     return Ok(Env {
-        reactions: kr_list,
+        reactions: Reactions { kreactions: kr_list, radiolytic: g_list } ,
         species: sim_species,
         bio_param: config.bio_param.clone(),
     });
