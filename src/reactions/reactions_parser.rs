@@ -8,22 +8,36 @@ use ron::{de::from_reader};
 use serde::Deserialize;
 
 /* ---------------------------- Internal imports ---------------------------- */
-use super::k_reactions::{ReactionSpecies, ReactionRateIndex};
-use super::traits::{RawSpecies, IsTrackedSpecies};
+use super::k_reactions::{
+    ReactionRateIndex,
+    ChemicalReaction,
+    RadiolyticReaction};
+use super::traits::{
+    RawSpecies,
+    IsTrackedSpecies,
+    IsChemicalReaction,
+    IsChemicalReactionList
+};
 use super::{
     KReaction,
     species::SimSpecies,
-    acid_base::{AcidBase},
+    acid_base::AcidBase,
 };
+use super::species::ReactionSpecies;
 use super::errors::RadioBioError;
-use super::{RadiolyticReaction, radiolytic};
 
 /* -------------------------------------------------------------------------- */
 /*                         FUNCTION/STRUCT DEFINITIONS                        */
 /* -------------------------------------------------------------------------- */
+impl IsChemicalReactionList for Vec<ChemicalReaction> {
+    fn push_reaction(&mut self, reaction:ChemicalReaction) {
+        self.push(reaction);
+    }
+}
+
 #[derive(Debug)]
 pub struct Env {
-    pub reactions: Reactions,
+    pub reactions: Vec<ChemicalReaction>,
     pub species: Vec<SimSpecies>,
     pub bio_param: BioParam,
 }
@@ -31,10 +45,10 @@ pub struct Env {
 impl Env {
     pub fn list_all_reactants(&self) -> Vec<String>{
         let mut out = vec![];
-        for reaction in self.reactions.iter_kreactions() {
-            for sp in reaction.iter_reactants() {
-                if !out.contains(sp.as_str()) {
-                    out.push(sp.as_owned_str());
+        for reaction in self.reactions.iter() {
+            for sp in reaction.reactants() {
+                if !out.contains(sp) {
+                    out.push(String::from(sp));
                 }
             }
         }
@@ -42,10 +56,10 @@ impl Env {
     }
     pub fn list_all_products(&self) -> Vec<String>{
         let mut out = vec![];
-        for reaction in self.reactions.iter_kreactions() {
-            for sp in reaction.iter_products() {
-                if !out.contains(sp.as_str()) {
-                    out.push(sp.as_owned_str());
+        for reaction in self.reactions.iter() {
+            for sp in reaction.products() {
+                if !out.contains(sp) {
+                    out.push(String::from(sp));
                 }
             }
         }
@@ -63,20 +77,6 @@ impl Env {
 
     pub fn iter_tracked_species(&self) -> impl Iterator<Item=&SimSpecies> {
         self.species.iter().filter(|x| x.is_tracked())
-    }
-}
-#[derive(Debug)]
-pub struct Reactions {
-    kreactions: Vec<KReaction>,
-    radiolytic: Vec<RadiolyticReaction>,
-}
-
-impl Reactions {
-    pub fn iter_kreactions(&self) -> impl Iterator<Item=&KReaction> {
-        self.kreactions.iter()
-    }
-    pub fn iter_radiolytic(&self) -> impl Iterator<Item=&RadiolyticReaction> {
-        self.radiolytic.iter()
     }
 }
 
@@ -123,7 +123,7 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
     };
 
     // Parse kReactions
-    let mut kr_list: Vec<KReaction> = vec![];
+    let mut reactions_list: Vec<ChemicalReaction> = vec![];
     for elt in &config.k_reactions {
         let mut kr =
             KReaction::new_empty(elt.get_k_value());
@@ -135,17 +135,23 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
             kr.add_product(sp);
         }
 
-        kr_list.push(kr);
+        reactions_list.push_k_reaction(kr);
     }
 
 
-    let mut sim_species = make_species_from_config(&config);
+    let (mut sim_sp, tracked_sp) = make_species_from_config(&config);
 
-    // Link kReactions to Species
-    let map_species = mapped_species(&sim_species);
+    // Parse radiolytic yields
+    for (sp, ge) in config.bio_param.radiolytic.iter() {
+        if !tracked_sp.contains(sp) { continue; }
+        reactions_list.push_radiolytic(
+            RadiolyticReaction::new_from_ge(sp.clone(), *ge));
+    }
 
-    for (r_idx, reaction) in kr_list.iter().enumerate() {
-        for sp in reaction.iter_species() {
+    // Link Species to ChemicalReactions
+    let map_species = mapped_species(&sim_sp);
+    for (r_idx, reaction) in reactions_list.iter().enumerate() {
+        for sp in reaction.species() {
 
             let idx = match map_species.get(sp.as_str()) {
                 Some(x) => x,
@@ -158,7 +164,7 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
                 ReactionSpecies::Reactant(_) =>
                     ReactionRateIndex::Consumption(r_idx),
             };
-            match sim_species.index_mut(*idx) {
+            match sim_sp.index_mut(*idx) {
                 SimSpecies::TrackedSpecies(sp) =>
                     {sp.link_kreaction(rrate_idx);},
                 SimSpecies::ABCouple(ab) =>
@@ -168,15 +174,9 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
         }
     }
 
-    // Parse radiolytic yields
-    let mut g_list:Vec<RadiolyticReaction> = vec![];
-    for (sp, ge) in config.bio_param.radiolytic.iter() {
-        g_list.push(RadiolyticReaction::new_from_ge(sp.clone(), *ge));
-    }
-
     return Ok(Env {
-        reactions: Reactions { kreactions: kr_list, radiolytic: g_list } ,
-        species: sim_species,
+        reactions: reactions_list,
+        species: sim_sp,
         bio_param: config.bio_param.clone(),
     });
 
@@ -185,11 +185,12 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
 
 // Create a Vec out of the reactions from .ron file
 fn make_species_from_config(config: &RonReactions)
-    -> Vec<SimSpecies> {
+    -> (Vec<SimSpecies>, Vec<String>) {
 
     let mut out:Vec<SimSpecies>= vec![];
     let mut idx:usize=0;
     let mut untracked:Vec<SimSpecies> = vec![];
+    let mut tracked_species = vec![];
 
     // Manually add H_plus & OH_minus as constant A/B partners (pH related)
     untracked.push(SimSpecies::new_cst_species(
@@ -212,6 +213,8 @@ fn make_species_from_config(config: &RonReactions)
                 )));
         // Create both Acid and Base "RawSpecies" which will later be
         // appended to the final vector with all species
+        tracked_species.push(elt.acid());
+        tracked_species.push(elt.base());
         untracked.push(SimSpecies::new_acid_partner(
             elt.acid(),
             idx));
@@ -246,6 +249,7 @@ fn make_species_from_config(config: &RonReactions)
             out.push(SimSpecies::new_tracked_species(
                             sp.clone(),
                             idx));
+            tracked_species.push(sp.clone());
             idx += 1;
         }
     }
@@ -254,7 +258,7 @@ fn make_species_from_config(config: &RonReactions)
     for elt in untracked {
         out.push(elt);
     }
-    return out
+    (out, tracked_species)
 }
 
 pub fn mapped_species(sp:&Vec<SimSpecies>) -> HashMap<String, usize> {

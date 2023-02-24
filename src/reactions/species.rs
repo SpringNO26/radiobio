@@ -11,6 +11,33 @@ use super::k_reactions::ReactionRateIndex;
 
 pub type MapSpecies = HashMap<String, SimSpecies>;
 
+#[derive(Debug, Clone)]
+pub enum ReactionSpecies {
+    Product(String),
+    Reactant(String),
+}
+
+impl ReactionSpecies {
+    pub fn as_str(&self) -> &String {
+        match self {
+            ReactionSpecies::Reactant(sp) => sp,
+            ReactionSpecies::Product(sp) => sp
+        }
+    }
+    pub fn as_owned_str(&self) -> String {
+        match self {
+            ReactionSpecies::Reactant(sp) => sp.to_string(),
+            ReactionSpecies::Product(sp) => sp.to_string()
+        }
+    }
+    pub fn is_reactant(&self) -> bool {
+        match self {
+            ReactionSpecies::Reactant(_) => true,
+            ReactionSpecies::Product(_) => false
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum SimSpecies {
     TrackedSpecies(SimpleSpecies),

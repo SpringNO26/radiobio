@@ -6,41 +6,47 @@ use std::collections::HashMap;
 /* ---------------------------- Internal imports ---------------------------- */
 use super::traits::{IsChemicalReaction};
 use super::errors::RadioBioError;
+use super::species::ReactionSpecies;
+use crate::physics::utils::ge_to_kr;
 
 /* -------------------------------------------------------------------------- */
 /*                         FUNCTION/STRUCT DEFINITIONS                        */
 /* -------------------------------------------------------------------------- */
+
+#[derive(Debug, Clone)]
+pub enum ChemicalReaction {
+    KReaction(KReaction),
+    Radiolytic(RadiolyticReaction)
+}
+
+impl IsChemicalReaction for ChemicalReaction {
+    fn compute_reaction(&mut self, current_dose_rate:f64, sp:&HashMap<String, f64>)
+    -> Result<()> {
+        match self {
+            ChemicalReaction::KReaction(r) =>
+                r.compute_reaction(current_dose_rate, sp),
+            ChemicalReaction::Radiolytic(r) =>
+                r.compute_reaction(current_dose_rate, sp),
+        }
+    }
+    fn value(&self) -> f64 {
+        match self {
+            ChemicalReaction::KReaction(r) => r.value(),
+            ChemicalReaction::Radiolytic(r) => r.value(),
+        }
+    }
+    fn species(&self) -> std::slice::Iter<ReactionSpecies> {
+        match self {
+            ChemicalReaction::KReaction(r) => r.species(),
+            ChemicalReaction::Radiolytic(r) => r.species(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ReactionRateIndex {
     Production(usize),
     Consumption(usize)
-}
-
-#[derive(Debug, Clone)]
-pub enum ReactionSpecies {
-    Product(String),
-    Reactant(String),
-}
-
-impl ReactionSpecies {
-    pub fn as_str(&self) -> &String {
-        match self {
-            ReactionSpecies::Reactant(sp) => sp,
-            ReactionSpecies::Product(sp) => sp
-        }
-    }
-    pub fn as_owned_str(&self) -> String {
-        match self {
-            ReactionSpecies::Reactant(sp) => sp.to_string(),
-            ReactionSpecies::Product(sp) => sp.to_string()
-        }
-    }
-    pub fn is_reactant(&self) -> bool {
-        match self {
-            ReactionSpecies::Reactant(_) => true,
-            ReactionSpecies::Product(_) => false
-        }
-    }
 }
 
 
@@ -54,7 +60,7 @@ pub struct KReaction{
 }
 
 impl IsChemicalReaction for KReaction {
-    fn compute_reaction(&mut self, current_dose_rate:f64, sp:&HashMap<String, f64>)
+    fn compute_reaction(&mut self, _:f64, sp:&HashMap<String, f64>)
     -> Result<()>{
         let mut res = self.k_value;
         for elt in self.iter_reactants().map(|x|x.as_str()) {
@@ -71,6 +77,11 @@ impl IsChemicalReaction for KReaction {
         Ok(())
     }
     fn value(&self) -> f64 { self.value }
+    fn species(&self) -> std::slice::Iter<ReactionSpecies> {
+        self.species.iter()
+    }
+
+
 }
 
 impl KReaction {
@@ -109,6 +120,7 @@ impl KReaction {
     pub fn iter_species(&self) -> impl Iterator<Item=&ReactionSpecies> {
         self.species.iter()
     }
+
     pub fn iter_reactants(&self) -> impl Iterator<Item=&ReactionSpecies> {
         self.species.iter()
                     .filter(|sp| sp.is_reactant())
@@ -117,6 +129,7 @@ impl KReaction {
         self.species.iter()
                     .filter(|sp| !sp.is_reactant())
     }
+
     pub fn iter_reactants_indexed(&self)
         -> impl Iterator<Item=(usize, &ReactionSpecies)>
     {
@@ -236,7 +249,38 @@ impl fmt::Display for KReaction {
     }
 }
 
+/* -------------------------------------------------------------------------- */
+/*                       RADIOLYTIC REACTIONS DEFINITION                      */
+/* -------------------------------------------------------------------------- */
+#[derive(Debug, Clone)]
+pub struct RadiolyticReaction {
+    species: Vec<ReactionSpecies>,
+    reaction_cst : f64, //Kr => concentration yield (mol/l/Gy)
+    value: f64,
+}
 
+impl RadiolyticReaction {
+    pub fn new_from_ge(species:String, ge: f64) -> Self {
+        Self { species: vec![ReactionSpecies::Product(species),],
+               reaction_cst: ge_to_kr(ge).unwrap(),
+               value:0_f64 }
+    }
+    pub fn kr(&self) -> f64 {self.reaction_cst}
+}
+
+impl IsChemicalReaction for RadiolyticReaction {
+    fn compute_reaction(&mut self, current_dose_rate:f64, _:&HashMap<String, f64>)
+    -> Result<()> {
+        self.value = self.kr() * current_dose_rate;
+        Ok(())
+    }
+    fn value(&self) -> f64 {self.value}
+
+    fn species(&self) -> std::slice::Iter<ReactionSpecies> {
+        self.species.iter()
+    }
+
+}
 
 //Obsolete implementations
 /*
