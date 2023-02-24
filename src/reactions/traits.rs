@@ -22,9 +22,8 @@ pub trait IsChemicalReactionList {
 }
 
 pub trait IsChemicalReaction {
-    fn compute_reaction(&mut self, current_dose_rate:f64, sp:&HashMap<String, f64>)
-    -> Result<()>;
-    fn value(&self) -> f64;
+    fn compute_reaction(&self, current_dose_rate:f64, sp:&HashMap<String, f64>)
+    -> Result<f64>;
     fn species(&self) -> std::slice::Iter<ReactionSpecies>;
     fn reactants(&self) -> ReactantsIter{
         ReactantsIter { inner: self.species() }
