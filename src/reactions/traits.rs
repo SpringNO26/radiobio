@@ -36,8 +36,6 @@ pub trait IsChemicalReaction {
 pub trait RawSpecies {
     fn as_str(&self) -> &String;
     fn as_owned_str(&self) -> String {self.as_str().to_string()}
-    fn cc_value(&self) -> f64;
-    fn set_cc_value(&mut self, cc:f64);
 }
 
 pub trait IsTrackedSpecies {

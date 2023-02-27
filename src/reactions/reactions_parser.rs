@@ -25,7 +25,7 @@ use super::{
 };
 use super::species::ReactionSpecies;
 use super::errors::RadioBioError;
-
+use crate::env::Env;
 /* -------------------------------------------------------------------------- */
 /*                         FUNCTION/STRUCT DEFINITIONS                        */
 /* -------------------------------------------------------------------------- */
@@ -35,55 +35,11 @@ impl IsChemicalReactionList for Vec<ChemicalReaction> {
     }
 }
 
-#[derive(Debug)]
-pub struct Env {
-    pub reactions: Vec<ChemicalReaction>,
-    pub species: Vec<SimSpecies>,
-    pub bio_param: BioParam,
-}
-
-impl Env {
-    pub fn list_all_reactants(&self) -> Vec<String>{
-        let mut out = vec![];
-        for reaction in self.reactions.iter() {
-            for sp in reaction.reactants() {
-                if !out.contains(sp) {
-                    out.push(String::from(sp));
-                }
-            }
-        }
-        return out;
-    }
-    pub fn list_all_products(&self) -> Vec<String>{
-        let mut out = vec![];
-        for reaction in self.reactions.iter() {
-            for sp in reaction.products() {
-                if !out.contains(sp) {
-                    out.push(String::from(sp));
-                }
-            }
-        }
-        return out;
-    }
-    pub fn number_of_tracked_species(&self) -> usize {
-        self.species.iter()
-                    .filter(|x| x.is_tracked())
-                    .count()
-    }
-
-    pub fn mapped_species(&self) -> HashMap<String, usize> {
-        mapped_species(&self.species)
-    }
-
-    pub fn iter_tracked_species(&self) -> impl Iterator<Item=&SimSpecies> {
-        self.species.iter().filter(|x| x.is_tracked())
-    }
-}
-
 #[derive(Debug, Deserialize)]
 struct RonReactions {
     pub bio_param: BioParam,
     pub fixed_concentrations: HashMap<String, f64>,
+    pub initial_concentrations: HashMap<String, f64>,
     pub acid_base: Vec<RonAcidBase>,
     pub k_reactions: Vec<RonKReaction>,
 }
@@ -149,7 +105,7 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
     }
 
     // Link Species to ChemicalReactions
-    let map_species = mapped_species(&sim_sp);
+    let map_species = map_all_species(&sim_sp);
     for (r_idx, reaction) in reactions_list.iter().enumerate() {
         for sp in reaction.species() {
 
@@ -178,6 +134,7 @@ pub fn parse_reactions_file(path: &str) -> Result<Env, RadioBioError> {
         reactions: reactions_list,
         species: sim_sp,
         bio_param: config.bio_param.clone(),
+        initial_cc: config.initial_concentrations,
     });
 
 }
@@ -261,12 +218,14 @@ fn make_species_from_config(config: &RonReactions)
     (out, tracked_species)
 }
 
-pub fn mapped_species(sp:&Vec<SimSpecies>) -> HashMap<String, usize> {
+pub fn map_all_species(sp:&Vec<SimSpecies>) -> HashMap<String, usize> {
     let mut out = HashMap::new();
     for (idx, sim_sp) in sp.iter().enumerate() {
         match sim_sp {
             // Nothing to do.
-            SimSpecies::ABCouple(_) => (),
+            SimSpecies::ABCouple(ab) => {
+                out.insert(ab.as_owned_str(), ab.index());
+            },
             // Add to map
             SimSpecies::ABPartner(ab) => {
                 out.insert(ab.as_owned_str(), ab.index());

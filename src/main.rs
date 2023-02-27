@@ -1,26 +1,46 @@
-use radiobio::reactions::parse_reactions_file;
-use radiobio::physics::ge_to_kr;
-use radiobio::physics::beam::{Beam, IsTimed};
-use radiobio::reactions::traits::IsChemicalReaction;
 
-//use radiobio::reactions::traits::ChemicalReaction;
-//use radiobio::reactions::{AcidBase, KReaction};
+use radiobio::reactions::parse_reactions_file;
+use radiobio::physics::beam::Beam;
+use radiobio::{ODESolver, State};
+
+use ode_solvers::dop853::*;
+use ode_solvers::*;
+
+use nalgebra::{DVector, dvector};
+
 fn main() {
     let reaction_file = format!(
         "{}/data/reactions.ron",
         env!("CARGO_MANIFEST_DIR")
     );
-    let sim_env = parse_reactions_file(&reaction_file).unwrap();
-    //println!("Ron file parsed to {:?}", sim_env);
-    //Env is {reactions -> {acid_base   -> vec<AcidBase>,
+
+    // Env is {reactions -> {acid_base   -> vec<AcidBase>,
     //                      k_reactions -> vec<KReaction>
     //                     },
     //          species -> HashMap
     //       }
-    /*
-    let r = sim_env.reactions.k_reactions[1].clone();
-    println!("\n\nExample of k reaction: {r}");
-    */
+    let sim_env = parse_reactions_file(&reaction_file).unwrap();
+    let beam = Beam::new_constant(String::from("e"), 1e4).expect("");
+    let sim = ODESolver::new( sim_env, beam );
+
+    let y0 = sim.sim_env.get_initial_values();
+    let mut stepper = Dop853::new(sim, 0.0, 0.1, 1e-6, y0, 1e-14, 1e-14);
+    let res = stepper.integrate();
+
+    // Handle result
+    match res {
+        Ok(stats) => {
+            println!("{}", stats);
+            //et path = Path::new("./outputs/three_body_dop853_dvector.dat");
+            //save(stepper.x_out(), stepper.y_out(), path);
+            //println!("Results saved in: {:?}", path);
+        }
+        Err(e) => println!("An error occured: {}", e),
+    }
+
+
+
+/*
     println!("\n\nBiologic parameters from RON file: ");
     println!("{:?}\n\n", sim_env.bio_param);
 
@@ -46,7 +66,7 @@ fn main() {
     let x = sim_env.number_of_tracked_species();
     println!("\n\n==> Number of tracked species: {}", x);
 
-    let map_sp = sim_env.mapped_species();
+    let map_sp = sim_env.map_all_species();
     println!("\n\nHere is the map of Species:\n{:?}", map_sp);
 
     println!("\n\nTest Ge conversion: {:.4e}", ge_to_kr(2.8).unwrap());
@@ -58,6 +78,18 @@ fn main() {
     println!("Test 0.0 division: {}", c.is_finite());
     println!("Test 0.0 division: {}", c.is_infinite());
 
+    println!("\n\nTest env capacities:");
+    for elt in sim_env.iter_ABCouples() {
+        println!("ABCouple: {:?}", elt);
+    }
+    let y = dvector![1e-6, 2e-4, 1e-5, 0.0, 0.0, 0.0, 0.0];
+    let sp_cc = sim_env.mapped_cc_species(&y);
+    println!("Mapped Species: {:?}", sp_cc);
+
+    println!("\n\n Test of reaction computing: ");
+    let r = sim_env.compute_chemical_reactions(&sp_cc, 1e3)
+        .expect("Unable to compute chemical reactions results");
+*/
 
 /*     println!("\n\n Testing Beam: ");
     let mut beam = Beam::new_pulsed(String::from("p"),
@@ -72,8 +104,8 @@ fn main() {
 
 
 
-
-    /* Old Tests
+/* -------------------------------- Old Tests ------------------------------- */
+    /*
     let x = reactions.k_reactions[5].clone();
     println!("Reaction is: {:?}", &x);
     println!("\tcontains e_aq? {}", x.involve("e_aq"));

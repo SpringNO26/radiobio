@@ -1,6 +1,7 @@
 
 use std::{fmt, fmt::Display};
 use std::collections::HashMap;
+use anyhow::{Result, bail};
 
 use super::acid_base::{AcidBase, ABPartner};
 use super::traits::{IsTrackedSpecies, RawSpecies};
@@ -10,6 +11,7 @@ use super::k_reactions::ReactionRateIndex;
 //use super::errors::RadioBioError;
 
 pub type MapSpecies = HashMap<String, SimSpecies>;
+
 
 #[derive(Debug, Clone)]
 pub enum ReactionSpecies {
@@ -75,6 +77,19 @@ impl SimSpecies {
             _ => false,
         }
     }
+    pub fn is_ABCouple(&self) -> bool {
+        match self {
+            Self::ABCouple(_)  => true,
+            _ => false,
+        }
+    }
+    pub fn unwrap_tracked(&self) -> Result<&dyn IsTrackedSpecies> {
+        match self {
+            SimSpecies::TrackedSpecies(val) => Ok(val),
+            SimSpecies::ABCouple(val) => Ok(val),
+            _ => bail!("{} cannot be unwrapped as IsTrackedSpecies", self)
+        }
+    }
 
 }
 
@@ -94,17 +109,12 @@ impl Display for SimSpecies {
 #[derive(Debug)]
 pub struct SimpleSpecies {
     label: String,
-    cc_value: f64,
     index: usize,
     kreaction: Vec<ReactionRateIndex>,
 }
 
 impl RawSpecies for SimpleSpecies {
     fn as_str(&self) -> &String { &self.label }
-    fn cc_value(&self) -> f64 { self.cc_value }
-    fn set_cc_value(&mut self, cc:f64) {
-        self.cc_value = cc;
-    }
 }
 
 impl IsTrackedSpecies for SimpleSpecies {
@@ -119,11 +129,11 @@ impl IsTrackedSpecies for SimpleSpecies {
 
 impl SimpleSpecies {
     pub fn new(label:String, index:usize) -> Self {
-        Self {label, cc_value:0.0, index, kreaction:vec![]}
+        Self {label, index, kreaction:vec![]}
     }
 
     pub fn new_cst(label:String, cc:f64) -> Self {
-        Self {label, cc_value:cc, index:usize::MAX, kreaction:vec![]}
+        Self {label, index:usize::MAX, kreaction:vec![]}
     }
 
     pub fn name(&self) -> &str { &self.label }
@@ -148,10 +158,6 @@ pub struct CstSpecies {
 
 impl RawSpecies for CstSpecies {
     fn as_str(&self) -> &String { &self.label }
-    fn cc_value(&self) -> f64 { self.cc_value }
-    fn set_cc_value(&mut self, cc:f64) {
-        self.cc_value = cc;
-    }
 }
 
 impl CstSpecies {
@@ -160,6 +166,7 @@ impl CstSpecies {
     }
 
     pub fn name(&self) -> &str { &self.label }
+    pub fn cc_value(&self) -> f64 { self.cc_value }
 }
 
 // For use in println!()

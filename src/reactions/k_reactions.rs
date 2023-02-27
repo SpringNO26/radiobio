@@ -51,7 +51,6 @@ pub struct KReaction{
     species: Vec<ReactionSpecies>,
     k_value: f64,
     stoichio: Vec<usize>,
-    value: f64,
 }
 
 impl IsChemicalReaction for KReaction {
@@ -87,7 +86,6 @@ impl KReaction {
         Self {species,
               k_value,
               stoichio,
-              value: 0.0,
             }
     }
 
@@ -96,7 +94,6 @@ impl KReaction {
             species: vec![],
             k_value: k_val.unwrap_or(0.0),
             stoichio: vec![],
-            value:0.0,
         }
     }
 

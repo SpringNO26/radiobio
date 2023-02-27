@@ -1,7 +1,7 @@
 (
     bio_param: (
         pH: 7,
-        radiolytic: { // [radical / 100eV / incident particle]
+        radiolytic: { // Unit is [radical / 100eV / incident particle]
             "e_aq": 2.8,
             "OH_r": 2.8,
             "H_r"  : 0.62,
@@ -11,6 +11,9 @@
     ),
     fixed_concentrations:{ // Unit is [mol]/[l]
         "H2O": 55,
+    },
+    initial_concentrations:{ // Unit is [mol]/[l]
+        "O2": 75e-6,
     },
     acid_base: [
         (

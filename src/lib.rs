@@ -1,26 +1,46 @@
-#[macro_use]
-extern crate assert_float_eq;
-extern crate nalgebra as na;
-
-use std::collections::HashMap;
-
+/* -------------------------------------------------------------------------- */
+/*                             MODULE DEFINITIONS                             */
+/* -------------------------------------------------------------------------- */
 pub mod reactions;
 pub mod physics;
+pub mod env;
 
-pub use reactions::reactions_parser::Env;
+/* -------------------------------------------------------------------------- */
+/* ---------------------------- External imports ---------------------------- */
+#[macro_use]
+extern crate assert_float_eq;
+
+
+use anyhow::Context;
+use ode_solvers as odes;
+
+/* ---------------------------- Internal imports ---------------------------- */
+use reactions::{traits::{IsTrackedSpecies}, SimSpecies};
+use reactions::k_reactions::ReactionRateIndex;
+
+/* ------------------------------- Re-exports ------------------------------- */
+
+pub use env::{Env, State, Time};
 pub use physics::beam::{Beam, IsTimed};
 
-// ODE Solver
-pub use ode_solvers as odes;
-use reactions::{traits::{IsChemicalReaction, RawSpecies}, SimSpecies};
+/* -------------------------- Type/func definitions ------------------------- */
 
-type State = na::DVector<f64>;
-type Time = f64;
 
 pub struct ODESolver {
-    sim_env: Env,
-    beam: Beam,
+    pub sim_env: Env,
+    pub beam: Beam,
+    dim: usize,
+}
 
+impl ODESolver {
+    pub fn new(env:Env, beam:Beam) -> Self {
+        let dim = env.number_of_tracked_species();
+        Self { sim_env: env,
+               beam: beam,
+               dim: dim,
+             }
+    }
+    pub fn dimension(&self) -> usize { self.dim }
 }
 
 impl odes::System<State> for ODESolver {
@@ -30,35 +50,41 @@ impl odes::System<State> for ODESolver {
         let dr = self.beam.at(t).dose_rate();
 
         // Create a HashMap<species,f64> with the current cc + /!\ Acid/Base
-        let sp_idx = self.sim_env.mapped_species();
-        let mut sp_val:HashMap<String, f64> = HashMap::new();
-        for (species, idx) in sp_idx.iter() {
-            sp_val.insert(species.clone(), y[*idx]);
-        }
-        //Still need to add untracked species & AcidBasePartners
-        for sp_sim in self.sim_env.species.iter() {
-            match sp_sim {
-                SimSpecies::TrackedSpecies(_) => continue,
-                SimSpecies::ABCouple(_) => continue,
-                SimSpecies::CstSpecies(sp) => {
-                    sp_val.insert(sp.as_owned_str(), sp.cc_value());
+        let sp_cc = self.sim_env.mapped_cc_species(y);
+        // First compute production rate values from reaction list
+        let reaction_values: Vec<f64> = self.sim_env
+            .compute_chemical_reactions(&sp_cc, dr)
+            .with_context(||format!("Failure occurs at t = {t}"))
+            .expect("");
+
+        // Compute new concentration values:
+        for sim_sp in self.sim_env.iter_tracked_species() {
+            let mut kreaction_idx = vec![];
+            let mut sp_idx:usize = 0;
+            match sim_sp {
+                SimSpecies::TrackedSpecies(sp) => {
+                    kreaction_idx.extend(sp.iter_kreaction_indexes());
+                    sp_idx = sp.index();
                 },
-                SimSpecies::ABPartner(sp) => {
-                    todo!();
+                SimSpecies::ABCouple(ab) => {
+                    kreaction_idx.extend(ab.iter_kreaction_indexes());
+                    sp_idx = ab.index();
                 },
+                _ => continue,
+            }
+
+            dy[sp_idx] = 0_f64;
+            for rr_idx in kreaction_idx {
+                match rr_idx {
+                    ReactionRateIndex::Consumption(idx) => {
+                        dy[sp_idx] -= reaction_values[*idx];
+                    },
+                    ReactionRateIndex::Production(idx) => {
+                        dy[sp_idx] += reaction_values[*idx];
+                    },
+                }
             }
         }
-        // First compute production rate values from reaction list
-        let mut reaction_values: Vec<f64> = vec![];
-        /*
-        for reaction in self.sim_env.reactions.iter() {
-            reaction_values.push(reaction.compute_reaction(dr, sp));
-        }
-        */
-
-        // For each tracked species, compute new concentration
-        //  Basically for each tracked species, loop over involved reactions.
-
     }
 
 }

@@ -35,14 +35,13 @@ impl Chemical {
 #[derive(Debug)]
 pub struct ABPartner {
     label: Chemical,
-    cc_value: f64,
     // Index of the related Acid/Base Reaction. Better than a Rc cell to
     // insure mutability of the linked AcidBase structure.
     reaction_index: usize,
 }
 impl ABPartner {
     fn new(label:Chemical, index:usize) -> Self {
-        Self { label: label, cc_value: 0.0, reaction_index: index }
+        Self { label: label, reaction_index: index }
     }
     pub fn new_acid(label:String, index:usize) -> Self {
         ABPartner::new(Chemical::Acid(label), index)
@@ -50,15 +49,10 @@ impl ABPartner {
     pub fn new_base(label:String, index:usize) -> Self {
         ABPartner::new(Chemical::Base(label), index)
     }
-    pub fn as_str(&self) -> &String { self.label.as_str() }
     pub fn index(&self) -> usize { self.reaction_index }
 }
 impl RawSpecies for ABPartner {
     fn as_str(&self) -> &String { self.label.as_str() }
-    fn cc_value(&self) -> f64 { self.cc_value }
-    fn set_cc_value(&mut self, cc:f64) {
-        self.cc_value = cc;
-    }
 }
 // For use in println!()
 impl Display for ABPartner {
@@ -66,6 +60,7 @@ impl Display for ABPartner {
         write!(f, "[{}]", self.label.as_str())
     }
 }
+
 // Main AcidBase struct holding the logic of acid base partitioning.
 #[derive(Debug, Clone)]
 #[allow(non_snake_case)]
@@ -76,7 +71,6 @@ pub struct AcidBase {
     ka: f64,
     index: usize,
     kreaction: Vec<ReactionRateIndex>,
-    partition: ABPartition
 }
 impl IsTrackedSpecies for AcidBase {
     fn index(&self) -> usize { self.index }
@@ -97,7 +91,6 @@ impl AcidBase {
                ka   : f64::powf(10.0, -pKa),
                index: index,
                kreaction: vec![],
-               partition: ABPartition::new_empty(),
             }
     }
     pub fn pKa(&self) -> f64 {self.pKa}
@@ -105,16 +98,23 @@ impl AcidBase {
     pub fn iter(&self) -> impl Iterator<Item=&Chemical> {
         vec![&self.acid, &self.base].into_iter()
     }
-    pub fn update_partition(&mut self, cc_tot:f64, cc_H_plus:f64) {
-        self.partition = ABPartition::new(
+    pub fn compute_partition(&self, cc_tot:f64, cc_H_plus:f64)
+    -> ABPartition {
+        ABPartition::new(
              cc_tot / ( 1.0 + cc_H_plus / self.ka() ), // Base
             cc_tot / ( 1.0 + self.ka() / cc_H_plus ), // Acid
             1.0    / ( 1.0 + cc_H_plus / self.ka() ), // dBase / dCt
            1.0    / ( 1.0 + self.ka() / cc_H_plus ), // dAcid / dCt
-        );
+        )
     }
     pub fn as_owned_str(&self) -> String {
         format!("{}/{}", self.acid.as_str(), self.base.as_str())
+    }
+    pub fn acid_str(&self) -> &String {
+        self.acid.as_str()
+    }
+    pub fn base_str(&self) -> &String {
+        self.base.as_str()
     }
 }
 impl fmt::Display for AcidBase {
@@ -129,10 +129,10 @@ impl fmt::Display for AcidBase {
 #[derive(Debug, Clone)]
 #[allow(dead_code, non_snake_case)]
 pub struct ABPartition {
-    pub A:f64,
-    pub HA:f64,
-    pub dA:f64,
-    pub dHA:f64
+    A:f64,
+    HA:f64,
+    dA:f64,
+    dHA:f64
 }
 
 #[allow(dead_code, non_snake_case)]
@@ -140,10 +140,8 @@ impl ABPartition {
     pub fn new(A:f64, HA:f64, dA:f64, dHA:f64) -> Self {
         Self { A, HA, dA, dHA}
     }
-
-    pub fn new_empty() -> Self {
-        Self {A:0.0, HA:0.0, dA:0.0, dHA:0.0}
-    }
+    pub fn acid(&self) -> f64 { self.HA }
+    pub fn base(&self) -> f64 { self.A  }
 }
 
 /*
