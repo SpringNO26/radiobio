@@ -60,6 +60,7 @@ impl odes::System<State> for ODESolver {
         // Compute new concentration values:
         for sim_sp in self.sim_env.iter_tracked_species() {
             let mut kreaction_idx = vec![];
+            #[allow(unused_assignments)]
             let mut sp_idx:usize = 0;
             match sim_sp {
                 SimSpecies::TrackedSpecies(sp) => {

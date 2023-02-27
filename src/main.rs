@@ -1,12 +1,9 @@
 
 use radiobio::reactions::parse_reactions_file;
 use radiobio::physics::beam::Beam;
-use radiobio::{ODESolver, State};
+use radiobio::{ODESolver};
 
-use ode_solvers::dop853::*;
-use ode_solvers::*;
-
-use nalgebra::{DVector, dvector};
+use ode_solvers::{Dopri5, Rk4};
 
 fn main() {
     let reaction_file = format!(
@@ -24,7 +21,8 @@ fn main() {
     let sim = ODESolver::new( sim_env, beam );
 
     let y0 = sim.sim_env.get_initial_values();
-    let mut stepper = Dop853::new(sim, 0.0, 0.1, 1e-6, y0, 1e-14, 1e-14);
+    //let mut stepper = Dopri5::new(sim, 0.0, 1e-7, 1e-9, y0, 1e-14, 1e-14);
+    let mut stepper = Rk4::new(sim, 0.0, y0, 100e-6, 1e-7);
     let res = stepper.integrate();
 
     // Handle result

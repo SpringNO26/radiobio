@@ -77,6 +77,8 @@ impl SimSpecies {
             _ => false,
         }
     }
+
+    #[allow(non_snake_case)]
     pub fn is_ABCouple(&self) -> bool {
         match self {
             Self::ABCouple(_)  => true,
@@ -130,10 +132,6 @@ impl IsTrackedSpecies for SimpleSpecies {
 impl SimpleSpecies {
     pub fn new(label:String, index:usize) -> Self {
         Self {label, index, kreaction:vec![]}
-    }
-
-    pub fn new_cst(label:String, cc:f64) -> Self {
-        Self {label, index:usize::MAX, kreaction:vec![]}
     }
 
     pub fn name(&self) -> &str { &self.label }
