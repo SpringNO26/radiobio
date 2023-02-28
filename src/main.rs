@@ -10,7 +10,7 @@ use radiobio::{ODESolver, Time, State};
 
 fn main() {
     let reaction_file = format!(
-        "{}/data/reactions.ron",
+        "{}/data/reactions_simple.ron",
         env!("CARGO_MANIFEST_DIR")
     );
 
@@ -22,7 +22,7 @@ fn main() {
     let sim_env = parse_reactions_file(&reaction_file).unwrap();
 
     let beam = Beam::new_constant(String::from("e"), 2.0).expect("");
-    let beam = Beam::new_pulsed(String::from("e"), 1e6, 250e-6, 1e-6).expect("");
+    //let beam = Beam::new_pulsed(String::from("e"), 1e6, 250e-6, 1e-6).expect("");
 
     let sim = ODESolver::new( sim_env, beam );
     let labels = sim.sim_env.species_label();
@@ -37,7 +37,7 @@ fn main() {
     /* ---------------------------------------------------------------------- */
     //let mut stepper = Dopri5::new(sim, 0.0, 1e-3, 1e-10, y0, 1e-6, 1e-8);
     //let mut stepper = Dop853::new(sim, 1e-9, 10e-6, 0.0, y0, 1e-16, 1e-16);
-    let mut stepper = Rk4::new(sim, 1e-9, y0, 0.1, 0.5e-6);
+    let mut stepper = Rk4::new(sim, 1e-9, y0, 100e-6, 0.5e-7);
     let res = stepper.integrate();
 
     // Handle result

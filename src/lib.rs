@@ -80,26 +80,25 @@ impl System<State> for ODESolver {
             }
 
             //dy[sp_idx] = 0_f64;
+            //println!("Species: {}", sim_sp.as_owned_str());
             for rr_idx in kreaction_idx {
                 match rr_idx {
                     ReactionRateIndex::Consumption(idx) => {
                         dy[sp_idx] -= reaction_values[*idx];
-                        /*if sim_sp.as_owned_str() == "e_aq" {
-                            println!("Reaction: {:?} ==> {:?}", self.sim_env.reactions[*idx], reaction_values[*idx]);
-                        }*/
+                        //println!(" - Reaction: {:?} ==> {:?}", self.sim_env.reactions[*idx], reaction_values[*idx]);
                     },
                     ReactionRateIndex::Production(idx) => {
                         dy[sp_idx] += reaction_values[*idx];
-                        /*if sim_sp.as_owned_str() == "e_aq" {
-                            println!("Reaction: {:?} ==> {:?}", self.sim_env.reactions[*idx], reaction_values[*idx]);
-                        }*/
+                        //println!(" + Reaction: {:?} ==> {:?}", self.sim_env.reactions[*idx], reaction_values[*idx]);
                     },
                 }
             }
             // Convert [mol] / [l] to [µ-mol] / [l]
             dy[sp_idx] *= 1e6;
+            //println!("\n");
         }
         //println!("\tdy/dt\t=> {:?}\n\n", dy);
+        //println!("\n\n\n");
     }
 
 }
