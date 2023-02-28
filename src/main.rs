@@ -1,9 +1,12 @@
 
+#[allow(unused_imports)]
+use std::{fs::File, io::BufWriter, io::Write, path::Path};
+
+use radiobio::ode_solver::rk4::Rk4;
 use radiobio::reactions::parse_reactions_file;
 use radiobio::physics::beam::Beam;
-use radiobio::{ODESolver};
+use radiobio::{ODESolver, Time, State};
 
-use ode_solvers::{Dopri5, Rk4};
 
 fn main() {
     let reaction_file = format!(
@@ -17,132 +20,81 @@ fn main() {
     //          species -> HashMap
     //       }
     let sim_env = parse_reactions_file(&reaction_file).unwrap();
-    let beam = Beam::new_constant(String::from("e"), 1e4).expect("");
-    let sim = ODESolver::new( sim_env, beam );
 
+    let beam = Beam::new_constant(String::from("e"), 2.0).expect("");
+    let beam = Beam::new_pulsed(String::from("e"), 1e6, 250e-6, 1e-6).expect("");
+
+    let sim = ODESolver::new( sim_env, beam );
+    let labels = sim.sim_env.species_label();
     let y0 = sim.sim_env.get_initial_values();
-    //let mut stepper = Dopri5::new(sim, 0.0, 1e-7, 1e-9, y0, 1e-14, 1e-14);
-    let mut stepper = Rk4::new(sim, 0.0, y0, 100e-6, 1e-7);
+
+    // Debug of Sim:
+    for elt in sim.sim_env.species.iter() {
+        println!("{:?}", elt);
+    }
+
+    //std::process::exit(0);
+    /* ---------------------------------------------------------------------- */
+    //let mut stepper = Dopri5::new(sim, 0.0, 1e-3, 1e-10, y0, 1e-6, 1e-8);
+    //let mut stepper = Dop853::new(sim, 1e-9, 10e-6, 0.0, y0, 1e-16, 1e-16);
+    let mut stepper = Rk4::new(sim, 1e-9, y0, 0.1, 0.5e-6);
     let res = stepper.integrate();
 
     // Handle result
     match res {
         Ok(stats) => {
             println!("{}", stats);
-            //et path = Path::new("./outputs/three_body_dop853_dvector.dat");
-            //save(stepper.x_out(), stepper.y_out(), path);
-            //println!("Results saved in: {:?}", path);
+            let file = format!(
+                "{}/output/rk4.dat",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let path = Path::new(&file);
+            save(labels,
+            stepper.x_out(),
+            stepper.y_out(),
+            path);
+            println!("Results saved in: {:?}", path);
         }
         Err(e) => println!("An error occured: {}", e),
     }
+}
 
 
+pub fn save(labels: Vec<String>, times: &Vec<Time>, states: &Vec<State>, filename: &Path) {
+    // Create or open file
+    let file = match File::create(filename) {
+        Err(e) => {
+            println!("Could not open file. Error: {:?}", e);
+            return;
+        }
+        Ok(buf) => buf,
+    };
+    let mut buf = BufWriter::new(file);
 
-/*
-    println!("\n\nBiologic parameters from RON file: ");
-    println!("{:?}\n\n", sim_env.bio_param);
-
-    println!("\n Chemical Reactions: ");
-    for (idx, elt) in sim_env.reactions.iter().enumerate(){
-        println!("{idx}) {elt:?}");
+    // Write labels
+    write!(&mut buf, "{}", &labels[0]).unwrap();
+    if let Err(e) = buf.flush() {
+        println!("Could not write to file. Error: {:?}", e);
     }
 
-    let x = sim_env.list_all_reactants();
-    println!("\n\n There are {} species involved as reactants:", x.len());
-    println!("{:?}", x);
+    for label in labels[1..].iter() {
+        write!(&mut buf, ", {}", label).unwrap();
+    }
+    write!(&mut buf, "\n").unwrap();
 
-    let x = sim_env.list_all_products();
-    println!("\n\n There are {} species involved as products:", x.len());
-    println!("{:?}", x);
-
-
-    println!("\n\nSpecies Vec structure");
-    for elt in &sim_env.species {
-        println!("{:?}", elt);
+    if let Err(e) = buf.flush() {
+        println!("Could not write to file. Error: {:?}", e);
     }
 
-    let x = sim_env.number_of_tracked_species();
-    println!("\n\n==> Number of tracked species: {}", x);
-
-    let map_sp = sim_env.map_all_species();
-    println!("\n\nHere is the map of Species:\n{:?}", map_sp);
-
-    println!("\n\nTest Ge conversion: {:.4e}", ge_to_kr(2.8).unwrap());
-
-    let (x,y) = (15.0_f64, 0.0);
-    let c = x/y;
-    println!("\n\nTest 0.0 division: {}", f64::is_nan(c));
-    println!("Test 0.0 division: {}", c.is_nan());
-    println!("Test 0.0 division: {}", c.is_finite());
-    println!("Test 0.0 division: {}", c.is_infinite());
-
-    println!("\n\nTest env capacities:");
-    for elt in sim_env.iter_ABCouples() {
-        println!("ABCouple: {:?}", elt);
+    // Write time and state vector in a csv format
+    for (i, state) in states.iter().enumerate() {
+        buf.write_fmt(format_args!("{}", times[i])).unwrap();
+        for val in state.iter() {
+            buf.write_fmt(format_args!(", {}", val)).unwrap();
+        }
+        buf.write_fmt(format_args!("\n")).unwrap();
     }
-    let y = dvector![1e-6, 2e-4, 1e-5, 0.0, 0.0, 0.0, 0.0];
-    let sp_cc = sim_env.mapped_cc_species(&y);
-    println!("Mapped Species: {:?}", sp_cc);
-
-    println!("\n\n Test of reaction computing: ");
-    let r = sim_env.compute_chemical_reactions(&sp_cc, 1e3)
-        .expect("Unable to compute chemical reactions results");
-*/
-
-/*     println!("\n\n Testing Beam: ");
-    let mut beam = Beam::new_pulsed(String::from("p"),
-                                         2.0,
-                                         4.0,
-                                         0.001).unwrap();
-    println!("{:?}", beam);
-
-    for elt in (0..20).map(|x| x as f64 * 0.5) {
-        println!("Time is {:.1} s -> Dr: {:.2} Gy/s",elt, beam.at(elt).current_dose_rate());
-    } */
-
-
-
-/* -------------------------------- Old Tests ------------------------------- */
-    /*
-    let x = reactions.k_reactions[5].clone();
-    println!("Reaction is: {:?}", &x);
-    println!("\tcontains e_aq? {}", x.involve("e_aq"));
-    println!("\tcontains H_r? {}", x.involve("H_r"));
-    println!("\tcontains H2O2? {}", x.involve("H2O2"));
-    println!("\tcontains h_r? {}", x.involve("h_r"));
-    println!("\tk-value = {}", x.k_value());
-
-    let mut hash = make_species_from_config(&reactions);
-    let species = "H2O2".to_string();
-    match hash.get(&species) {
-        Some(sp) => println!("Found: {:?}", sp),
-        None => println!("No species named: {:?}", species)
+    if let Err(e) = buf.flush() {
+        println!("Could not write to file. Error: {:?}", e);
     }
-    println!("There are {} species involved", hash.len());
-    for (key, val) in &hash {
-        println!("\t {:?}", val);
-    }
-
-    hash.entry(species).and_modify(
-        |sp| sp.set_last_cc(55.0).unwrap()
-    );
-    println!("After modif: {:?}", hash.get("H2O2"));
-    let sp1 = hash.get("H2O2").unwrap();
-    let sp2 = hash.get("e_aq").unwrap();
-
-    println!("Trying Math operation of species: ");
-    println!(" -> Addition: {}", sp1+sp2);
-    println!(" -> Multiplication: {}", sp1*sp2);
-    println!(" -> Substraction: {}", sp2-sp1);
-
-    let x = reactions.k_reactions[6].clone();
-    println!("Another Reaction is: {:?}", &x);
-
-
-    //Acid Base reactions test
-    let x = reactions.acid_base[0].clone();
-    for elt in x.iter() {
-        println!("Acid Base species: {elt}");
-    }
-    */
 }

@@ -2,7 +2,7 @@
 /* ---------------------------- External imports ---------------------------- */
 use std::collections::HashMap;
 use anyhow::{Result, Context};
-use ode_solvers as odes;
+use nalgebra as na;
 
 /* ---------------------------- Internal imports ---------------------------- */
 use super::reactions::SimSpecies;
@@ -31,7 +31,7 @@ macro_rules! extract {
 }
 
 /* ------------------------- Type def for ODE solver ------------------------ */
-pub type State = odes::DVector<f64>;
+pub type State = na::DVector<f64>;
 pub type Time = f64;
 /* -------------------------------------------------------------------------- */
 
@@ -88,6 +88,15 @@ impl Env {
                     .map(|x| extract!(x, SimSpecies::ABCouple).unwrap())
     }
 
+    pub fn species_label(&self) -> Vec<String> {
+        let mut out = vec![];
+        for sp in self.species.iter() {
+            if !sp.is_tracked() || out.contains(&sp.as_owned_str()) {continue;}
+            out.push(sp.as_owned_str());
+        }
+        return out;
+    }
+
     pub fn mapped_cc_species(&self, y:&State) -> HashMap<String, f64> {
         let mut out: HashMap<String, f64> = HashMap::new();
         let sp_idx = self.map_all_species();
@@ -95,11 +104,14 @@ impl Env {
         // Copy cc of TrackedSpecies from ODE Solver
         for (species, idx) in sp_idx.iter() {
             match y.get(*idx) {
+                // Force positive concentrations
                 Some(&value) if value>=0_f64 => {
-                    out.insert(species.clone(), value);
+                    // Convert [µ-mol] / [l] to [mol] / [l]
+                    out.insert(species.clone(), value * 1e-6);
                 }
                 // Negative cc value case:
-                Some(_) => {
+                Some(&value) => {
+                    //println!("Negative value for {} ({:.2e})", species, value);
                     out.insert(species.clone(), 0_f64);
                 }
                 None => {();}

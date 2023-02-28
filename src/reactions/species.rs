@@ -38,6 +38,9 @@ impl ReactionSpecies {
             ReactionSpecies::Product(_) => false
         }
     }
+    pub fn is_product(&self) -> bool {
+        !self.is_reactant()
+    }
 }
 
 #[derive(Debug)]

@@ -57,10 +57,10 @@ impl IsChemicalReaction for KReaction {
     fn compute_reaction(&self, _:f64, sp:&HashMap<String, f64>)
     -> Result<f64>{
         let mut res = self.k_value;
-        for elt in self.iter_reactants().map(|x|x.as_str()) {
+        for (elt, stoi) in self.iter_reactants().map(|(x, stoi)| (x.as_str(), *stoi)) {
             match sp.get(elt) {
                 Some(cc) => {
-                    res *= cc;
+                    res *= cc/(stoi as f64);
                 },
                 None => {
                     bail!(RadioBioError::UnknownSpecies(elt.to_string()));
@@ -104,20 +104,22 @@ impl KReaction {
     }
 
     pub fn k_value(&self) -> f64 {
-        self.k_value / (self.number_of_reactants() as f64)
+        self.k_value
     }
 
     pub fn iter_species(&self) -> impl Iterator<Item=&ReactionSpecies> {
         self.species.iter()
     }
 
-    pub fn iter_reactants(&self) -> impl Iterator<Item=&ReactionSpecies> {
+    pub fn iter_reactants(&self) -> impl Iterator<Item=(&ReactionSpecies, &usize)> {
         self.species.iter()
-                    .filter(|sp| sp.is_reactant())
+                    .zip(&self.stoichio)
+                    .filter(|(sp, stoi)| sp.is_reactant())
     }
-    pub fn iter_products(&self) -> impl Iterator<Item=&ReactionSpecies> {
+    pub fn iter_products(&self) -> impl Iterator<Item=(&ReactionSpecies, &usize)> {
         self.species.iter()
-                    .filter(|sp| !sp.is_reactant())
+                    .zip(&self.stoichio)
+                    .filter(|(sp, stoi)| !sp.is_reactant())
     }
 
     pub fn iter_reactants_indexed(&self)
@@ -136,26 +138,24 @@ impl KReaction {
     }
 
     pub fn index_of_reactant(&self, sp:&str) -> Result<usize> {
-        self.iter_reactants()
-            .position(|r| r.as_str() == sp).ok_or(
-            RadioBioError::SpeciesIsNotReactant(
-                sp.to_string(),
-                format!("{}", self)).into()
+        self.species.iter()
+            .position(|r| {r.as_str() == sp && r.is_reactant()})
+            .ok_or( RadioBioError::SpeciesIsNotReactant(
+                sp.to_string(), format!("{}", self)).into()
         )
     }
     pub fn index_of_product(&self, sp:&str) -> Result<usize> {
-        self.iter_products()
-            .position(|r| r.as_str() == sp).ok_or(
+        self.species.iter()
+            .position(|r| r.as_str() == sp && r.is_product()).ok_or(
             RadioBioError::SpeciesIsNotReactant(
-                sp.to_string(),
-                format!("{}", self)).into()
+                sp.to_string(), format!("{}", self)).into()
         )
     }
     pub fn is_reactant(&self, sp:&str) -> bool {
-        self.iter_reactants().any(|elt| elt.as_str()==sp)
+        self.iter_reactants().any(|(elt,_)| elt.as_str()==sp)
     }
     pub fn is_product(&self, sp:&str) -> bool {
-        self.iter_products().any(|elt| elt.as_str()==sp)
+        self.iter_products().any(|(elt,_)| elt.as_str()==sp)
     }
     pub fn get_stoichio(&self, sp:&str) -> Result<usize> {
         let idx = self.index_of_reactant(sp)?;
